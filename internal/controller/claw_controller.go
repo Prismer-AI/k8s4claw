@@ -26,8 +26,9 @@ const clawFinalizer = "claw.prismer.ai/cleanup"
 // ClawReconciler reconciles a Claw object.
 type ClawReconciler struct {
 	client.Client
-	Scheme   *runtime.Scheme
-	Registry *clawruntime.Registry
+	Scheme                *runtime.Scheme
+	Registry              *clawruntime.Registry
+	NativeSidecarsEnabled bool
 }
 
 // +kubebuilder:rbac:groups=claw.prismer.ai,resources=claws,verbs=get;list;watch;create;update;patch;delete
