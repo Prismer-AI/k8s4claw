@@ -60,6 +60,11 @@ func (r *ClawReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 		return ctrl.Result{}, fmt.Errorf("failed to ensure finalizer: %w", err)
 	}
 
+	// Ensure headless Service exists and is up to date.
+	if err := r.ensureService(ctx, &claw, adapter); err != nil {
+		return ctrl.Result{}, fmt.Errorf("failed to ensure Service: %w", err)
+	}
+
 	// Ensure StatefulSet exists and is up to date.
 	if err := r.ensureStatefulSet(ctx, &claw, adapter); err != nil {
 		return ctrl.Result{}, err
@@ -211,12 +216,7 @@ func (r *ClawReconciler) updateStatus(ctx context.Context, claw *clawv1alpha1.Cl
 func (r *ClawReconciler) buildStatefulSet(ctx context.Context, claw *clawv1alpha1.Claw, adapter clawruntime.RuntimeAdapter) (*appsv1.StatefulSet, error) {
 	logger := log.FromContext(ctx)
 
-	labels := map[string]string{
-		"app.kubernetes.io/name":     "claw",
-		"app.kubernetes.io/instance": claw.Name,
-		"claw.prismer.ai/runtime":    string(claw.Spec.Runtime),
-		"claw.prismer.ai/instance":   claw.Name,
-	}
+	labels := clawLabels(claw)
 
 	replicas := int32(1)
 

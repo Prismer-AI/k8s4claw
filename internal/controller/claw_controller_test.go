@@ -387,6 +387,94 @@ func TestClawReconciler_StatusProvisioning(t *testing.T) {
 	}
 }
 
+func TestClawReconciler_ServiceCreated(t *testing.T) {
+	ns := fmt.Sprintf("test-svc-create-%d", time.Now().UnixNano())
+	createNamespace(t, ns)
+
+	clawName := "test-claw-svc"
+	claw := &clawv1alpha1.Claw{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      clawName,
+			Namespace: ns,
+		},
+		Spec: clawv1alpha1.ClawSpec{
+			Runtime: clawv1alpha1.RuntimeOpenClaw,
+		},
+	}
+
+	if err := k8sClient.Create(ctx, claw); err != nil {
+		t.Fatalf("failed to create Claw: %v", err)
+	}
+
+	// Wait for the headless Service to appear.
+	var svc corev1.Service
+	waitForCondition(t, testTimeout, testInterval, func() (bool, error) {
+		err := k8sClient.Get(ctx, types.NamespacedName{
+			Name:      clawName,
+			Namespace: ns,
+		}, &svc)
+		if err != nil {
+			if client.IgnoreNotFound(err) == nil {
+				return false, nil
+			}
+			return false, err
+		}
+		return true, nil
+	})
+
+	// Verify ClusterIP = "None" (headless).
+	if svc.Spec.ClusterIP != corev1.ClusterIPNone {
+		t.Fatalf("expected ClusterIP=%q, got %q", corev1.ClusterIPNone, svc.Spec.ClusterIP)
+	}
+
+	// Verify selector labels.
+	expectedSelector := map[string]string{
+		"app.kubernetes.io/name":     "claw",
+		"app.kubernetes.io/instance": clawName,
+	}
+	for k, v := range expectedSelector {
+		if got := svc.Spec.Selector[k]; got != v {
+			t.Errorf("Service selector %q: expected %q, got %q", k, v, got)
+		}
+	}
+
+	// Verify port named "gateway" with port 18900.
+	var gatewayPort *corev1.ServicePort
+	for i := range svc.Spec.Ports {
+		if svc.Spec.Ports[i].Name == "gateway" {
+			gatewayPort = &svc.Spec.Ports[i]
+			break
+		}
+	}
+	if gatewayPort == nil {
+		t.Fatal("expected port named 'gateway', not found")
+	}
+	if gatewayPort.Port != 18900 {
+		t.Errorf("expected gateway port=18900, got %d", gatewayPort.Port)
+	}
+
+	// Verify ownerReferences (kind=Claw).
+	if len(svc.OwnerReferences) != 1 {
+		t.Fatalf("expected 1 ownerReference, got %d", len(svc.OwnerReferences))
+	}
+	if svc.OwnerReferences[0].Kind != "Claw" {
+		t.Errorf("expected ownerReference kind=Claw, got %q", svc.OwnerReferences[0].Kind)
+	}
+
+	// Verify standard labels on Service.
+	expectedLabels := map[string]string{
+		"app.kubernetes.io/name":     "claw",
+		"app.kubernetes.io/instance": clawName,
+		"claw.prismer.ai/runtime":    "openclaw",
+		"claw.prismer.ai/instance":   clawName,
+	}
+	for k, v := range expectedLabels {
+		if got := svc.Labels[k]; got != v {
+			t.Errorf("Service label %q: expected %q, got %q", k, v, got)
+		}
+	}
+}
+
 func TestClawReconciler_UnknownRuntime(t *testing.T) {
 	ns := fmt.Sprintf("test-sts-unknown-%d", time.Now().UnixNano())
 	createNamespace(t, ns)
