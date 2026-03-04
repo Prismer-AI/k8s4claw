@@ -72,10 +72,8 @@ spec:
                   type: object
                 type: array
               config:
-                additionalProperties:
-                  type: string
                 description: Config holds runtime-specific configuration.
-                type: object
+                x-kubernetes-preserve-unknown-fields: true
               credentials:
                 description: Credentials defines how API keys and tokens are provided.
                 properties:
@@ -649,6 +647,8 @@ spec:
                 - Pending
                 - Provisioning
                 - Running
+                - Degraded
+                - Updating
                 - Failed
                 - Terminating
                 type: string

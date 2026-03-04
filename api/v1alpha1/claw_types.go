@@ -2,6 +2,7 @@ package v1alpha1
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 )
 
 // ClawSpec defines the desired state of a Claw agent instance.
@@ -12,7 +13,7 @@ type ClawSpec struct {
 
 	// Config holds runtime-specific configuration.
 	// +optional
-	Config map[string]string `json:"config,omitempty"`
+	Config *apiextensionsv1.JSON `json:"config,omitempty"`
 
 	// Credentials defines how API keys and tokens are provided.
 	// +optional
@@ -42,13 +43,15 @@ type ServiceAccountRef struct {
 }
 
 // ClawPhase represents the current lifecycle phase.
-// +kubebuilder:validation:Enum=Pending;Provisioning;Running;Failed;Terminating
+// +kubebuilder:validation:Enum=Pending;Provisioning;Running;Degraded;Updating;Failed;Terminating
 type ClawPhase string
 
 const (
 	ClawPhasePending      ClawPhase = "Pending"
 	ClawPhaseProvisioning ClawPhase = "Provisioning"
 	ClawPhaseRunning      ClawPhase = "Running"
+	ClawPhaseDegraded     ClawPhase = "Degraded"
+	ClawPhaseUpdating     ClawPhase = "Updating"
 	ClawPhaseFailed       ClawPhase = "Failed"
 	ClawPhaseTerminating  ClawPhase = "Terminating"
 )

@@ -15,8 +15,10 @@ build-ipcbus: ## Build IPC Bus binary.
 run: ## Run operator locally against the configured cluster.
 	go run ./cmd/operator/
 
-test: ## Run tests.
-	go test -race -cover ./...
+ENVTEST_ASSETS ?= $(shell setup-envtest use -p path 2>/dev/null)
+
+test: ## Run tests (requires setup-envtest for controller tests).
+	KUBEBUILDER_ASSETS="$(ENVTEST_ASSETS)" go test -race ./internal/...
 
 lint: ## Run linter.
 	golangci-lint run ./...

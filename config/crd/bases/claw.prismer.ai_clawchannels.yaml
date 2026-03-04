@@ -66,10 +66,8 @@ spec:
                     type: string
                 type: object
               config:
-                additionalProperties:
-                  type: string
                 description: Config holds channel-specific configuration.
-                type: object
+                x-kubernetes-preserve-unknown-fields: true
               credentials:
                 description: Credentials for the channel service.
                 properties:

@@ -45,7 +45,7 @@ type RuntimeValidator interface {
 	Validate(ctx context.Context, spec *v1alpha1.ClawSpec) field.ErrorList
 
 	// ValidateUpdate checks the spec for an UPDATE operation.
-	ValidateUpdate(ctx context.Context, old, new *v1alpha1.ClawSpec) field.ErrorList
+	ValidateUpdate(ctx context.Context, oldSpec, newSpec *v1alpha1.ClawSpec) field.ErrorList
 }
 
 // RuntimeAdapter combines builder and validator for a complete runtime implementation.

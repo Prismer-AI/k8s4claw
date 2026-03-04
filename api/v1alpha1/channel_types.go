@@ -3,6 +3,7 @@ package v1alpha1
 import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 )
 
 // ChannelType defines the type of communication channel.
@@ -35,7 +36,7 @@ type ClawChannelSpec struct {
 
 	// Config holds channel-specific configuration.
 	// +optional
-	Config map[string]string `json:"config,omitempty"`
+	Config *apiextensionsv1.JSON `json:"config,omitempty"`
 
 	// Backpressure tuning for this channel.
 	// +optional
