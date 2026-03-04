@@ -318,38 +318,32 @@ func (r *ClawReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Owns(&corev1.Service{}).
 		Owns(&corev1.PersistentVolumeClaim{}).
 		Owns(&corev1.ConfigMap{}).
-		Owns(&corev1.ServiceAccount{}).
 		Watches(&clawv1alpha1.ClawChannel{}, handler.EnqueueRequestsFromMapFunc(r.findClawsForChannel)).
 		Complete(r)
 }
 
 // findClawsForChannel maps a ClawChannel change to all Claw resources that reference it.
+// Uses the field indexer registered by SetupChannelNameIndex for efficient lookups.
 func (r *ClawReconciler) findClawsForChannel(ctx context.Context, obj client.Object) []reconcile.Request {
 	channel, ok := obj.(*clawv1alpha1.ClawChannel)
 	if !ok {
 		return nil
 	}
 
-	var clawList clawv1alpha1.ClawList
-	if err := r.List(ctx, &clawList, client.InNamespace(channel.Namespace)); err != nil {
-		log.FromContext(ctx).Error(err, "failed to list Claws for channel mapping", "channel", channel.Name)
+	names, err := clawsReferencingChannel(ctx, r.Client, channel.Namespace, channel.Name)
+	if err != nil {
+		log.FromContext(ctx).Error(err, "failed to find Claws for channel mapping", "channel", channel.Name)
 		return nil
 	}
 
-	var requests []reconcile.Request
-	for i := range clawList.Items {
-		claw := &clawList.Items[i]
-		for _, ch := range claw.Spec.Channels {
-			if ch.Name == channel.Name {
-				requests = append(requests, reconcile.Request{
-					NamespacedName: types.NamespacedName{
-						Name:      claw.Name,
-						Namespace: claw.Namespace,
-					},
-				})
-				break
-			}
-		}
+	requests := make([]reconcile.Request, 0, len(names))
+	for _, name := range names {
+		requests = append(requests, reconcile.Request{
+			NamespacedName: types.NamespacedName{
+				Name:      name,
+				Namespace: channel.Namespace,
+			},
+		})
 	}
 
 	return requests

@@ -3,7 +3,6 @@ package controller
 import (
 	"context"
 	"fmt"
-	"sort"
 	"time"
 
 	apimeta "k8s.io/apimachinery/pkg/api/meta"
@@ -74,27 +73,10 @@ func (r *ClawChannelReconciler) Reconcile(ctx context.Context, req ctrl.Request)
 	return ctrl.Result{}, nil
 }
 
-// findReferencingClaws lists all Claws in the same namespace and returns the names
-// of those that reference the given channel in their spec.channels.
+// findReferencingClaws returns the sorted names of Claws referencing the given channel.
+// Uses the field indexer registered by SetupChannelNameIndex for efficient lookups.
 func (r *ClawChannelReconciler) findReferencingClaws(ctx context.Context, channel *clawv1alpha1.ClawChannel) ([]string, error) {
-	var clawList clawv1alpha1.ClawList
-	if err := r.List(ctx, &clawList, client.InNamespace(channel.Namespace)); err != nil {
-		return nil, fmt.Errorf("failed to list Claws: %w", err)
-	}
-
-	var names []string
-	for i := range clawList.Items {
-		claw := &clawList.Items[i]
-		for _, ch := range claw.Spec.Channels {
-			if ch.Name == channel.Name {
-				names = append(names, claw.Name)
-				break
-			}
-		}
-	}
-
-	sort.Strings(names)
-	return names, nil
+	return clawsReferencingChannel(ctx, r.Client, channel.Namespace, channel.Name)
 }
 
 // handleChannelDeletion manages the deletion of a ClawChannel. If the channel is still

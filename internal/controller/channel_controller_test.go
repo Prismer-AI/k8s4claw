@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	appsv1 "k8s.io/api/apps/v1"
 	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -258,4 +259,88 @@ func TestClawChannelReconciler_DeletionProtection(t *testing.T) {
 	if inUseCond.Reason != "ReferencesExist" {
 		t.Errorf("expected InUse reason=ReferencesExist, got %q", inUseCond.Reason)
 	}
+}
+
+// TestClawChannelWatch_CrossResourceReconcile verifies that a ClawChannel change
+// triggers re-reconciliation of Claw resources that reference it, proving the
+// Watches() + findClawsForChannel mapper is wired correctly.
+func TestClawChannelWatch_CrossResourceReconcile(t *testing.T) {
+	ns := fmt.Sprintf("test-ch-watch-%d", time.Now().UnixNano())
+	createNamespace(t, ns)
+
+	// 1. Create a ClawChannel.
+	channel := &clawv1alpha1.ClawChannel{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "cross-watch-ch",
+			Namespace: ns,
+		},
+		Spec: clawv1alpha1.ClawChannelSpec{
+			Type: clawv1alpha1.ChannelTypeWebhook,
+			Mode: clawv1alpha1.ChannelModeBidirectional,
+		},
+	}
+	if err := k8sClient.Create(ctx, channel); err != nil {
+		t.Fatalf("failed to create ClawChannel: %v", err)
+	}
+
+	// 2. Create a Claw that references this channel.
+	claw := &clawv1alpha1.Claw{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "cross-watch-claw",
+			Namespace: ns,
+		},
+		Spec: clawv1alpha1.ClawSpec{
+			Runtime: clawv1alpha1.RuntimeZeroClaw,
+			Channels: []clawv1alpha1.ChannelRef{
+				{Name: channel.Name, Mode: clawv1alpha1.ChannelModeBidirectional},
+			},
+		},
+	}
+	if err := k8sClient.Create(ctx, claw); err != nil {
+		t.Fatalf("failed to create Claw: %v", err)
+	}
+
+	// 3. Wait for the Claw's StatefulSet to be created by the reconciler.
+	clawNN := types.NamespacedName{Name: claw.Name, Namespace: ns}
+	waitForCondition(t, testTimeout, testInterval, func() (bool, error) {
+		var sts appsv1.StatefulSet
+		err := k8sClient.Get(ctx, clawNN, &sts)
+		if err != nil {
+			if client.IgnoreNotFound(err) == nil {
+				return false, nil
+			}
+			return false, err
+		}
+		return true, nil
+	})
+
+	// 4. Record the StatefulSet ResourceVersion before channel change.
+	var stsBefore appsv1.StatefulSet
+	if err := k8sClient.Get(ctx, clawNN, &stsBefore); err != nil {
+		t.Fatalf("failed to get StatefulSet: %v", err)
+	}
+	rvBefore := stsBefore.ResourceVersion
+
+	// 5. Update the ClawChannel spec to trigger the cross-resource watch.
+	var latestChannel clawv1alpha1.ClawChannel
+	if err := k8sClient.Get(ctx, types.NamespacedName{
+		Name: channel.Name, Namespace: ns,
+	}, &latestChannel); err != nil {
+		t.Fatalf("failed to get latest channel: %v", err)
+	}
+	patch := client.MergeFrom(latestChannel.DeepCopy())
+	latestChannel.Spec.Mode = clawv1alpha1.ChannelModeOutbound
+	if err := k8sClient.Patch(ctx, &latestChannel, patch); err != nil {
+		t.Fatalf("failed to patch channel spec: %v", err)
+	}
+
+	// 6. Wait for the StatefulSet ResourceVersion to change, proving the Claw
+	// reconciler re-ran and updated the StatefulSet after the channel change.
+	waitForCondition(t, testTimeout, testInterval, func() (bool, error) {
+		var sts appsv1.StatefulSet
+		if err := k8sClient.Get(ctx, clawNN, &sts); err != nil {
+			return false, err
+		}
+		return sts.ResourceVersion != rvBefore, nil
+	})
 }

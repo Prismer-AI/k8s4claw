@@ -15,6 +15,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
 	clawv1alpha1 "github.com/Prismer-AI/k8s4claw/api/v1alpha1"
 	clawruntime "github.com/Prismer-AI/k8s4claw/internal/runtime"
@@ -59,12 +60,18 @@ func TestMain(m *testing.M) {
 	registry.Register(clawv1alpha1.RuntimeZeroClaw, &clawruntime.ZeroClawAdapter{})
 	registry.Register(clawv1alpha1.RuntimePicoClaw, &clawruntime.PicoClawAdapter{})
 
-	// Create the manager.
+	// Create the manager with metrics disabled (avoid port conflicts in tests).
 	mgr, err := ctrl.NewManager(cfg, ctrl.Options{
-		Scheme: scheme.Scheme,
+		Scheme:  scheme.Scheme,
+		Metrics: metricsserver.Options{BindAddress: "0"},
 	})
 	if err != nil {
 		panic("failed to create manager: " + err.Error())
+	}
+
+	// Register field indexers.
+	if err := SetupChannelNameIndex(mgr); err != nil {
+		panic("failed to set up channel name index: " + err.Error())
 	}
 
 	// Set up the ClawReconciler.

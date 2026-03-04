@@ -66,6 +66,12 @@ func main() {
 	registry.Register(clawv1alpha1.RuntimeZeroClaw, &clawruntime.ZeroClawAdapter{})
 	registry.Register(clawv1alpha1.RuntimePicoClaw, &clawruntime.PicoClawAdapter{})
 
+	// Register field indexers.
+	if err := controller.SetupChannelNameIndex(mgr); err != nil {
+		setupLog.Error(err, "unable to set up channel name field index")
+		os.Exit(1)
+	}
+
 	// Register controllers.
 	if err := (&controller.ClawReconciler{
 		Client:                mgr.GetClient(),

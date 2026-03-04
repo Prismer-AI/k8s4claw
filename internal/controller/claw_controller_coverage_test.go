@@ -13,6 +13,7 @@ import (
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	apimachineryruntime "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -1982,4 +1983,979 @@ func TestEnsureService_CreateError(t *testing.T) {
 	if !errors.Is(err, errSimulated) {
 		t.Errorf("expected simulated create error, got: %v", err)
 	}
+}
+
+// ===========================================================================
+// Phase 3: Additional coverage tests targeting remaining uncovered blocks
+// ===========================================================================
+
+// newFakeChannelReconciler builds a ClawChannelReconciler with the given client for unit testing.
+func newFakeChannelReconciler(c client.Client) *ClawChannelReconciler {
+	return &ClawChannelReconciler{
+		Client: c,
+		Scheme: scheme.Scheme,
+	}
+}
+
+// ---------------------------------------------------------------------------
+// channel_controller.go error paths
+// ---------------------------------------------------------------------------
+
+func TestChannelReconcile_FindReferencingClawsError(t *testing.T) {
+	errSimulated := errors.New("simulated list error")
+
+	channel := &clawv1alpha1.ClawChannel{
+		ObjectMeta: metav1.ObjectMeta{Name: "ch-err", Namespace: "default", UID: "ch-uid-1"},
+		Spec:       clawv1alpha1.ClawChannelSpec{Type: clawv1alpha1.ChannelTypeWebhook},
+	}
+
+	fakeClient := fake.NewClientBuilder().
+		WithScheme(scheme.Scheme).
+		WithObjects(channel).
+		WithStatusSubresource(channel).
+		Build()
+	wrappedClient := interceptor.NewClient(fakeClient, interceptor.Funcs{
+		List: func(ctx context.Context, c client.WithWatch, list client.ObjectList, opts ...client.ListOption) error {
+			if _, ok := list.(*clawv1alpha1.ClawList); ok {
+				return errSimulated
+			}
+			return c.List(ctx, list, opts...)
+		},
+	})
+
+	r := newFakeChannelReconciler(wrappedClient)
+	_, err := r.Reconcile(ctx, ctrl.Request{
+		NamespacedName: types.NamespacedName{Name: "ch-err", Namespace: "default"},
+	})
+	if err == nil {
+		t.Fatal("expected error from channel Reconcile, got nil")
+	}
+}
+
+func TestChannelReconcile_AddFinalizerPatchError(t *testing.T) {
+	errSimulated := errors.New("simulated patch error")
+
+	// Channel without finalizer → Reconcile will try to add it.
+	channel := &clawv1alpha1.ClawChannel{
+		ObjectMeta: metav1.ObjectMeta{Name: "ch-patch", Namespace: "default", UID: "ch-uid-2"},
+		Spec:       clawv1alpha1.ClawChannelSpec{Type: clawv1alpha1.ChannelTypeWebhook},
+	}
+
+	fakeClient := fake.NewClientBuilder().
+		WithScheme(scheme.Scheme).
+		WithObjects(channel).
+		WithStatusSubresource(channel).
+		WithIndex(&clawv1alpha1.Claw{}, ChannelNameIndexField, func(obj client.Object) []string {
+			claw, ok := obj.(*clawv1alpha1.Claw)
+			if !ok {
+				return nil
+			}
+			names := make([]string, 0, len(claw.Spec.Channels))
+			for _, ch := range claw.Spec.Channels {
+				names = append(names, ch.Name)
+			}
+			return names
+		}).
+		Build()
+	wrappedClient := interceptor.NewClient(fakeClient, interceptor.Funcs{
+		Patch: func(ctx context.Context, c client.WithWatch, obj client.Object, patch client.Patch, opts ...client.PatchOption) error {
+			return errSimulated
+		},
+	})
+
+	r := newFakeChannelReconciler(wrappedClient)
+	_, err := r.Reconcile(ctx, ctrl.Request{
+		NamespacedName: types.NamespacedName{Name: "ch-patch", Namespace: "default"},
+	})
+	if err == nil {
+		t.Fatal("expected error from channel Reconcile Patch, got nil")
+	}
+}
+
+func TestHandleChannelDeletion_NoFinalizer(t *testing.T) {
+	fakeClient := fake.NewClientBuilder().WithScheme(scheme.Scheme).Build()
+	r := newFakeChannelReconciler(fakeClient)
+
+	now := metav1.Now()
+	channel := &clawv1alpha1.ClawChannel{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:              "ch-nofin",
+			Namespace:         "default",
+			DeletionTimestamp: &now,
+			Finalizers:        []string{}, // No finalizer.
+		},
+	}
+
+	result, err := r.handleChannelDeletion(ctx, channel, nil)
+	if err != nil {
+		t.Fatalf("expected nil error for channel deletion without finalizer, got: %v", err)
+	}
+	if result.Requeue {
+		t.Error("expected no requeue")
+	}
+}
+
+func TestHandleChannelDeletion_StatusUpdateError(t *testing.T) {
+	errSimulated := errors.New("simulated status update error")
+
+	channel := &clawv1alpha1.ClawChannel{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:       "ch-status-err",
+			Namespace:  "default",
+			UID:        "ch-uid-3",
+			Finalizers: []string{clawChannelFinalizer},
+		},
+	}
+
+	fakeClient := fake.NewClientBuilder().
+		WithScheme(scheme.Scheme).
+		WithObjects(channel).
+		WithStatusSubresource(channel).
+		Build()
+	wrappedClient := interceptor.NewClient(fakeClient, interceptor.Funcs{
+		SubResourceUpdate: func(ctx context.Context, c client.Client, subResourceName string, obj client.Object, opts ...client.SubResourceUpdateOption) error {
+			return errSimulated
+		},
+	})
+
+	r := newFakeChannelReconciler(wrappedClient)
+
+	now := metav1.Now()
+	channel.DeletionTimestamp = &now
+
+	// Still referenced by a Claw → tries to update status.
+	_, err := r.handleChannelDeletion(ctx, channel, []string{"my-claw"})
+	if err == nil {
+		t.Fatal("expected error from handleChannelDeletion status update, got nil")
+	}
+}
+
+func TestHandleChannelDeletion_RemoveFinalizerPatchError(t *testing.T) {
+	errSimulated := errors.New("simulated patch error")
+
+	channel := &clawv1alpha1.ClawChannel{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:       "ch-rm-fin",
+			Namespace:  "default",
+			UID:        "ch-uid-4",
+			Finalizers: []string{clawChannelFinalizer},
+		},
+	}
+
+	fakeClient := fake.NewClientBuilder().
+		WithScheme(scheme.Scheme).
+		WithObjects(channel).
+		WithStatusSubresource(channel).
+		Build()
+	wrappedClient := interceptor.NewClient(fakeClient, interceptor.Funcs{
+		Patch: func(ctx context.Context, c client.WithWatch, obj client.Object, patch client.Patch, opts ...client.PatchOption) error {
+			return errSimulated
+		},
+	})
+
+	r := newFakeChannelReconciler(wrappedClient)
+
+	now := metav1.Now()
+	channel.DeletionTimestamp = &now
+
+	// No references → tries to remove finalizer.
+	_, err := r.handleChannelDeletion(ctx, channel, nil)
+	if err == nil {
+		t.Fatal("expected error from handleChannelDeletion Patch, got nil")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// channel_index.go: clawsReferencingChannel List error
+// ---------------------------------------------------------------------------
+
+func TestClawsReferencingChannel_ListError(t *testing.T) {
+	errSimulated := errors.New("simulated list error")
+	fakeClient := fake.NewClientBuilder().WithScheme(scheme.Scheme).Build()
+	wrappedClient := interceptor.NewClient(fakeClient, interceptor.Funcs{
+		List: func(ctx context.Context, c client.WithWatch, list client.ObjectList, opts ...client.ListOption) error {
+			return errSimulated
+		},
+	})
+
+	_, err := clawsReferencingChannel(ctx, wrappedClient, "default", "some-channel")
+	if err == nil {
+		t.Fatal("expected error from clawsReferencingChannel, got nil")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// updateStatus: Running phase (ReadyReplicas >= 1)
+// ---------------------------------------------------------------------------
+
+func TestUpdateStatus_RunningPhase(t *testing.T) {
+	claw := &clawv1alpha1.Claw{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-running", Namespace: "default", UID: "uid-run", Generation: 2},
+		Spec:       clawv1alpha1.ClawSpec{Runtime: clawv1alpha1.RuntimeOpenClaw},
+	}
+
+	// Pre-create a StatefulSet with ReadyReplicas=1 to trigger Running phase.
+	sts := &appsv1.StatefulSet{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-running", Namespace: "default"},
+		Status: appsv1.StatefulSetStatus{
+			ReadyReplicas: 1,
+		},
+	}
+
+	fakeClient := fake.NewClientBuilder().
+		WithScheme(scheme.Scheme).
+		WithObjects(claw, sts).
+		WithStatusSubresource(claw).
+		Build()
+
+	r := newFakeReconciler(fakeClient)
+
+	if err := r.updateStatus(ctx, claw); err != nil {
+		t.Fatalf("unexpected error from updateStatus: %v", err)
+	}
+
+	if claw.Status.Phase != clawv1alpha1.ClawPhaseRunning {
+		t.Errorf("expected phase Running, got %s", claw.Status.Phase)
+	}
+
+	// Verify RuntimeReady condition is True.
+	found := false
+	for _, c := range claw.Status.Conditions {
+		if c.Type == "RuntimeReady" {
+			found = true
+			if c.Status != metav1.ConditionTrue {
+				t.Errorf("expected RuntimeReady=True, got %s", c.Status)
+			}
+			if c.Reason != "StatefulSetReady" {
+				t.Errorf("expected reason StatefulSetReady, got %s", c.Reason)
+			}
+		}
+	}
+	if !found {
+		t.Error("RuntimeReady condition not found")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// findClawsForChannel error paths
+// ---------------------------------------------------------------------------
+
+func TestFindClawsForChannel_TypeAssertionFail(t *testing.T) {
+	fakeClient := fake.NewClientBuilder().WithScheme(scheme.Scheme).Build()
+	r := newFakeReconciler(fakeClient)
+
+	// Pass a non-ClawChannel object → type assertion fails → return nil.
+	svc := &corev1.Service{ObjectMeta: metav1.ObjectMeta{Name: "not-a-channel", Namespace: "default"}}
+	result := r.findClawsForChannel(ctx, svc)
+	if result != nil {
+		t.Errorf("expected nil for non-ClawChannel object, got %v", result)
+	}
+}
+
+func TestFindClawsForChannel_ListError(t *testing.T) {
+	errSimulated := errors.New("simulated list error")
+	fakeClient := fake.NewClientBuilder().WithScheme(scheme.Scheme).Build()
+	wrappedClient := interceptor.NewClient(fakeClient, interceptor.Funcs{
+		List: func(ctx context.Context, c client.WithWatch, list client.ObjectList, opts ...client.ListOption) error {
+			if _, ok := list.(*clawv1alpha1.ClawList); ok {
+				return errSimulated
+			}
+			return c.List(ctx, list, opts...)
+		},
+	})
+
+	r := newFakeReconciler(wrappedClient)
+
+	channel := &clawv1alpha1.ClawChannel{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-ch", Namespace: "default"},
+	}
+
+	result := r.findClawsForChannel(ctx, channel)
+	if result != nil {
+		t.Errorf("expected nil on list error, got %v", result)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// channel_sidecar.go: NativeSidecarsEnabled=false path
+// ---------------------------------------------------------------------------
+
+func TestInjectChannelSidecars_NonNativeSidecar(t *testing.T) {
+	channel := &clawv1alpha1.ClawChannel{
+		ObjectMeta: metav1.ObjectMeta{Name: "ch-nonnative", Namespace: "default"},
+		Spec: clawv1alpha1.ClawChannelSpec{
+			Type: clawv1alpha1.ChannelTypeSlack,
+			Mode: clawv1alpha1.ChannelModeBidirectional,
+		},
+	}
+
+	fakeClient := fake.NewClientBuilder().
+		WithScheme(scheme.Scheme).
+		WithObjects(channel).
+		Build()
+
+	r := newFakeReconciler(fakeClient)
+	r.NativeSidecarsEnabled = false // Force non-native path.
+
+	claw := &clawv1alpha1.Claw{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-nonnative", Namespace: "default"},
+		Spec: clawv1alpha1.ClawSpec{
+			Runtime: clawv1alpha1.RuntimeOpenClaw,
+			Channels: []clawv1alpha1.ChannelRef{
+				{Name: "ch-nonnative", Mode: clawv1alpha1.ChannelModeInbound},
+			},
+		},
+	}
+
+	podTemplate := &corev1.PodTemplateSpec{
+		Spec: corev1.PodSpec{
+			Containers: []corev1.Container{
+				{Name: "runtime", Image: "test:latest"},
+			},
+		},
+	}
+
+	skipped, err := r.injectChannelSidecars(ctx, claw, podTemplate)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(skipped) != 0 {
+		t.Errorf("expected 0 skipped, got %d", len(skipped))
+	}
+
+	// Sidecar should be in Containers (not InitContainers) when NativeSidecarsEnabled=false.
+	if len(podTemplate.Spec.Containers) != 2 {
+		t.Fatalf("expected 2 containers, got %d", len(podTemplate.Spec.Containers))
+	}
+	if podTemplate.Spec.Containers[1].Name != "channel-ch-nonnative" {
+		t.Errorf("expected sidecar name channel-ch-nonnative, got %s", podTemplate.Spec.Containers[1].Name)
+	}
+	// InitContainers should be empty.
+	if len(podTemplate.Spec.InitContainers) != 0 {
+		t.Errorf("expected 0 init containers for non-native path, got %d", len(podTemplate.Spec.InitContainers))
+	}
+}
+
+func TestInjectChannelSidecars_GetNonNotFoundError(t *testing.T) {
+	errSimulated := errors.New("simulated channel get error")
+
+	fakeClient := fake.NewClientBuilder().WithScheme(scheme.Scheme).Build()
+	wrappedClient := interceptor.NewClient(fakeClient, interceptor.Funcs{
+		Get: func(ctx context.Context, c client.WithWatch, key client.ObjectKey, obj client.Object, opts ...client.GetOption) error {
+			if _, ok := obj.(*clawv1alpha1.ClawChannel); ok {
+				return errSimulated
+			}
+			return c.Get(ctx, key, obj, opts...)
+		},
+	})
+
+	r := newFakeReconciler(wrappedClient)
+
+	claw := &clawv1alpha1.Claw{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-ch-err", Namespace: "default"},
+		Spec: clawv1alpha1.ClawSpec{
+			Runtime: clawv1alpha1.RuntimeOpenClaw,
+			Channels: []clawv1alpha1.ChannelRef{
+				{Name: "bad-channel", Mode: clawv1alpha1.ChannelModeInbound},
+			},
+		},
+	}
+
+	podTemplate := &corev1.PodTemplateSpec{}
+
+	_, err := r.injectChannelSidecars(ctx, claw, podTemplate)
+	if err == nil {
+		t.Fatal("expected error from injectChannelSidecars non-NotFound Get, got nil")
+	}
+	if !errors.Is(err, errSimulated) {
+		t.Errorf("expected simulated error, got: %v", err)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// claw_credentials.go edge cases
+// ---------------------------------------------------------------------------
+
+func TestInjectCredentials_NilCredentials(t *testing.T) {
+	fakeClient := fake.NewClientBuilder().WithScheme(scheme.Scheme).Build()
+	r := newFakeReconciler(fakeClient)
+
+	claw := &clawv1alpha1.Claw{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-nil-creds", Namespace: "default"},
+		Spec: clawv1alpha1.ClawSpec{
+			Runtime:     clawv1alpha1.RuntimeOpenClaw,
+			Credentials: nil, // Explicitly nil.
+		},
+	}
+
+	podTemplate := &corev1.PodTemplateSpec{}
+
+	err := r.injectCredentials(ctx, claw, podTemplate)
+	if err != nil {
+		t.Fatalf("expected nil error for nil credentials, got: %v", err)
+	}
+}
+
+func TestInjectCredentials_NoRuntimeContainer(t *testing.T) {
+	fakeClient := fake.NewClientBuilder().WithScheme(scheme.Scheme).Build()
+	r := newFakeReconciler(fakeClient)
+
+	claw := &clawv1alpha1.Claw{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-no-runtime", Namespace: "default"},
+		Spec: clawv1alpha1.ClawSpec{
+			Runtime: clawv1alpha1.RuntimeOpenClaw,
+			Credentials: &clawv1alpha1.CredentialSpec{
+				SecretRef: &corev1.LocalObjectReference{Name: "my-secret"},
+			},
+		},
+	}
+
+	// Pod template with a container named "other" instead of "runtime".
+	podTemplate := &corev1.PodTemplateSpec{
+		Spec: corev1.PodSpec{
+			Containers: []corev1.Container{
+				{Name: "other", Image: "test:latest"},
+			},
+		},
+	}
+
+	err := r.injectCredentials(ctx, claw, podTemplate)
+	if err == nil {
+		t.Fatal("expected error for missing runtime container, got nil")
+	}
+	if err.Error() != "runtime container not found in pod template" {
+		t.Errorf("unexpected error message: %v", err)
+	}
+}
+
+func TestComputeSecretHash_GetError(t *testing.T) {
+	errSimulated := errors.New("simulated secret get error")
+	fakeClient := fake.NewClientBuilder().WithScheme(scheme.Scheme).Build()
+	wrappedClient := interceptor.NewClient(fakeClient, interceptor.Funcs{
+		Get: func(ctx context.Context, c client.WithWatch, key client.ObjectKey, obj client.Object, opts ...client.GetOption) error {
+			if _, ok := obj.(*corev1.Secret); ok {
+				return errSimulated
+			}
+			return c.Get(ctx, key, obj, opts...)
+		},
+	})
+
+	r := newFakeReconciler(wrappedClient)
+
+	_, err := r.computeSecretHash(ctx, "default", "nonexistent-secret")
+	if err == nil {
+		t.Fatal("expected error from computeSecretHash, got nil")
+	}
+	if !errors.Is(err, errSimulated) {
+		t.Errorf("expected simulated error, got: %v", err)
+	}
+}
+
+func TestInjectCredentials_SecretHashError(t *testing.T) {
+	errSimulated := errors.New("simulated secret get error")
+
+	fakeClient := fake.NewClientBuilder().WithScheme(scheme.Scheme).Build()
+	wrappedClient := interceptor.NewClient(fakeClient, interceptor.Funcs{
+		Get: func(ctx context.Context, c client.WithWatch, key client.ObjectKey, obj client.Object, opts ...client.GetOption) error {
+			if _, ok := obj.(*corev1.Secret); ok {
+				return errSimulated
+			}
+			return c.Get(ctx, key, obj, opts...)
+		},
+	})
+
+	r := newFakeReconciler(wrappedClient)
+
+	claw := &clawv1alpha1.Claw{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-hash-err", Namespace: "default"},
+		Spec: clawv1alpha1.ClawSpec{
+			Runtime: clawv1alpha1.RuntimeOpenClaw,
+			Credentials: &clawv1alpha1.CredentialSpec{
+				SecretRef: &corev1.LocalObjectReference{Name: "my-secret"},
+			},
+		},
+	}
+
+	podTemplate := &corev1.PodTemplateSpec{
+		Spec: corev1.PodSpec{
+			Containers: []corev1.Container{
+				{Name: "runtime", Image: "test:latest"},
+			},
+		},
+	}
+
+	err := r.injectCredentials(ctx, claw, podTemplate)
+	if err == nil {
+		t.Fatal("expected error from injectCredentials secret hash, got nil")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// SetControllerReference errors (using scheme without clawv1alpha1)
+// ---------------------------------------------------------------------------
+
+func incompleteSchemeReconciler(c client.Client) *ClawReconciler {
+	incompleteScheme := apimachineryruntime.NewScheme()
+	_ = corev1.AddToScheme(incompleteScheme)
+	_ = appsv1.AddToScheme(incompleteScheme)
+	// Intentionally do NOT register clawv1alpha1 → SetControllerReference will fail.
+
+	registry := clawruntime.NewRegistry()
+	registry.Register(clawv1alpha1.RuntimeOpenClaw, &clawruntime.OpenClawAdapter{})
+	return &ClawReconciler{
+		Client:                c,
+		Scheme:                incompleteScheme,
+		Registry:              registry,
+		NativeSidecarsEnabled: true,
+	}
+}
+
+func TestEnsureConfigMap_SetControllerReferenceError(t *testing.T) {
+	fakeClient := fake.NewClientBuilder().WithScheme(scheme.Scheme).Build()
+	r := incompleteSchemeReconciler(fakeClient)
+	adapter, _ := r.Registry.Get(clawv1alpha1.RuntimeOpenClaw)
+
+	claw := &clawv1alpha1.Claw{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-ref", Namespace: "default", UID: "uid-ref"},
+		Spec:       clawv1alpha1.ClawSpec{Runtime: clawv1alpha1.RuntimeOpenClaw},
+	}
+
+	err := r.ensureConfigMap(ctx, claw, adapter)
+	if err == nil {
+		t.Fatal("expected error from SetControllerReference on ConfigMap, got nil")
+	}
+	if !containsSubstring(err.Error(), "controller reference") {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+func TestEnsureService_SetControllerReferenceError(t *testing.T) {
+	fakeClient := fake.NewClientBuilder().WithScheme(scheme.Scheme).Build()
+	r := incompleteSchemeReconciler(fakeClient)
+	adapter, _ := r.Registry.Get(clawv1alpha1.RuntimeOpenClaw)
+
+	claw := &clawv1alpha1.Claw{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-ref-svc", Namespace: "default", UID: "uid-ref"},
+		Spec:       clawv1alpha1.ClawSpec{Runtime: clawv1alpha1.RuntimeOpenClaw},
+	}
+
+	err := r.ensureService(ctx, claw, adapter)
+	if err == nil {
+		t.Fatal("expected error from SetControllerReference on Service, got nil")
+	}
+	if !containsSubstring(err.Error(), "controller reference") {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+func TestEnsureStatefulSet_SetControllerReferenceError(t *testing.T) {
+	fakeClient := fake.NewClientBuilder().WithScheme(scheme.Scheme).Build()
+	r := incompleteSchemeReconciler(fakeClient)
+	adapter, _ := r.Registry.Get(clawv1alpha1.RuntimeOpenClaw)
+
+	claw := &clawv1alpha1.Claw{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-ref-sts", Namespace: "default", UID: "uid-ref"},
+		Spec:       clawv1alpha1.ClawSpec{Runtime: clawv1alpha1.RuntimeOpenClaw},
+	}
+
+	err := r.ensureStatefulSet(ctx, claw, adapter)
+	if err == nil {
+		t.Fatal("expected error from SetControllerReference on StatefulSet, got nil")
+	}
+	if !containsSubstring(err.Error(), "controller reference") {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// buildConfigMap / mergeConfig error paths
+// ---------------------------------------------------------------------------
+
+func TestBuildConfigMap_MergeConfigError(t *testing.T) {
+	fakeClient := fake.NewClientBuilder().WithScheme(scheme.Scheme).Build()
+	r := newFakeReconciler(fakeClient)
+	adapter, _ := r.Registry.Get(clawv1alpha1.RuntimeOpenClaw)
+
+	// Invalid JSON in user config → mergeConfig will fail.
+	claw := &clawv1alpha1.Claw{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-bad-json", Namespace: "default"},
+		Spec: clawv1alpha1.ClawSpec{
+			Runtime: clawv1alpha1.RuntimeOpenClaw,
+			Config:  &apiextensionsv1.JSON{Raw: []byte("{{invalid json")},
+		},
+	}
+
+	_, err := r.buildConfigMap(claw, adapter)
+	if err == nil {
+		t.Fatal("expected error from buildConfigMap with invalid JSON, got nil")
+	}
+	if !containsSubstring(err.Error(), "merge config") {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+func TestEnsureConfigMap_BuildConfigMapError(t *testing.T) {
+	fakeClient := fake.NewClientBuilder().WithScheme(scheme.Scheme).Build()
+	r := newFakeReconciler(fakeClient)
+	adapter, _ := r.Registry.Get(clawv1alpha1.RuntimeOpenClaw)
+
+	// Invalid JSON in user config → buildConfigMap fails → ensureConfigMap returns wrapped error.
+	claw := &clawv1alpha1.Claw{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-build-cm-err", Namespace: "default", UID: "uid-build"},
+		Spec: clawv1alpha1.ClawSpec{
+			Runtime: clawv1alpha1.RuntimeOpenClaw,
+			Config:  &apiextensionsv1.JSON{Raw: []byte("{{bad")},
+		},
+	}
+
+	err := r.ensureConfigMap(ctx, claw, adapter)
+	if err == nil {
+		t.Fatal("expected error from ensureConfigMap build path, got nil")
+	}
+	if !containsSubstring(err.Error(), "build ConfigMap") {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// ensureFinalizer Patch error
+// ---------------------------------------------------------------------------
+
+func TestEnsureFinalizer_PatchError(t *testing.T) {
+	errSimulated := errors.New("simulated patch error")
+
+	claw := &clawv1alpha1.Claw{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "test-fin-patch", Namespace: "default",
+			UID: "uid-fin", Finalizers: []string{}, // No finalizer yet.
+		},
+		Spec: clawv1alpha1.ClawSpec{Runtime: clawv1alpha1.RuntimeOpenClaw},
+	}
+
+	fakeClient := fake.NewClientBuilder().
+		WithScheme(scheme.Scheme).
+		WithObjects(claw).
+		Build()
+	wrappedClient := interceptor.NewClient(fakeClient, interceptor.Funcs{
+		Patch: func(ctx context.Context, c client.WithWatch, obj client.Object, patch client.Patch, opts ...client.PatchOption) error {
+			return errSimulated
+		},
+	})
+
+	r := newFakeReconciler(wrappedClient)
+	err := r.ensureFinalizer(ctx, claw)
+	if err == nil {
+		t.Fatal("expected error from ensureFinalizer Patch, got nil")
+	}
+	if !errors.Is(err, errSimulated) {
+		t.Errorf("expected simulated error, got: %v", err)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// handleDeletion error paths
+// ---------------------------------------------------------------------------
+
+func TestHandleDeletion_DeletePVCsError(t *testing.T) {
+	errSimulated := errors.New("simulated list error for deletion")
+
+	claw := &clawv1alpha1.Claw{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "test-del-pvc-err", Namespace: "default",
+			UID: "uid-del", Finalizers: []string{clawFinalizer},
+		},
+		Spec: clawv1alpha1.ClawSpec{
+			Runtime: clawv1alpha1.RuntimeOpenClaw,
+			Persistence: &clawv1alpha1.PersistenceSpec{
+				ReclaimPolicy: "Delete",
+			},
+		},
+	}
+
+	fakeClient := fake.NewClientBuilder().
+		WithScheme(scheme.Scheme).
+		WithObjects(claw).
+		Build()
+	wrappedClient := interceptor.NewClient(fakeClient, interceptor.Funcs{
+		List: func(ctx context.Context, c client.WithWatch, list client.ObjectList, opts ...client.ListOption) error {
+			if _, ok := list.(*corev1.PersistentVolumeClaimList); ok {
+				return errSimulated
+			}
+			return c.List(ctx, list, opts...)
+		},
+	})
+
+	r := newFakeReconciler(wrappedClient)
+	_, err := r.handleDeletion(ctx, claw)
+	if err == nil {
+		t.Fatal("expected error from handleDeletion deleteClawPVCs, got nil")
+	}
+}
+
+func TestHandleDeletion_RemoveFinalizerPatchError(t *testing.T) {
+	errSimulated := errors.New("simulated patch error")
+
+	claw := &clawv1alpha1.Claw{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "test-del-patch-err", Namespace: "default",
+			UID: "uid-del-2", Finalizers: []string{clawFinalizer},
+		},
+		Spec: clawv1alpha1.ClawSpec{Runtime: clawv1alpha1.RuntimeOpenClaw},
+		// No persistence or Retain policy → skips PVC deletion → goes to remove finalizer.
+	}
+
+	fakeClient := fake.NewClientBuilder().
+		WithScheme(scheme.Scheme).
+		WithObjects(claw).
+		Build()
+	wrappedClient := interceptor.NewClient(fakeClient, interceptor.Funcs{
+		Patch: func(ctx context.Context, c client.WithWatch, obj client.Object, patch client.Patch, opts ...client.PatchOption) error {
+			return errSimulated
+		},
+	})
+
+	r := newFakeReconciler(wrappedClient)
+	_, err := r.handleDeletion(ctx, claw)
+	if err == nil {
+		t.Fatal("expected error from handleDeletion finalizer removal, got nil")
+	}
+	if !errors.Is(err, errSimulated) {
+		t.Errorf("expected simulated error, got: %v", err)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Reconcile: ensureFinalizer error path
+// ---------------------------------------------------------------------------
+
+func TestReconcile_EnsureFinalizerError(t *testing.T) {
+	errSimulated := errors.New("simulated reconcile finalizer error")
+
+	claw := &clawv1alpha1.Claw{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "test-reconcile-fin", Namespace: "default",
+			UID: "uid-fin-2", Generation: 1,
+			// No finalizer → Reconcile will try to add it.
+		},
+		Spec: clawv1alpha1.ClawSpec{Runtime: clawv1alpha1.RuntimeOpenClaw},
+	}
+
+	fakeClient := fake.NewClientBuilder().
+		WithScheme(scheme.Scheme).
+		WithObjects(claw).
+		WithStatusSubresource(claw).
+		Build()
+	wrappedClient := interceptor.NewClient(fakeClient, interceptor.Funcs{
+		Patch: func(ctx context.Context, c client.WithWatch, obj client.Object, patch client.Patch, opts ...client.PatchOption) error {
+			return errSimulated
+		},
+	})
+
+	r := newFakeReconciler(wrappedClient)
+	_, err := r.Reconcile(ctx, ctrl.Request{
+		NamespacedName: types.NamespacedName{Name: "test-reconcile-fin", Namespace: "default"},
+	})
+	if err == nil {
+		t.Fatal("expected error from Reconcile ensureFinalizer, got nil")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Reconcile: re-fetch error after StatefulSet (claw_controller.go:81-83)
+// ---------------------------------------------------------------------------
+
+func TestReconcile_RefetchError(t *testing.T) {
+	errSimulated := errors.New("simulated refetch error")
+
+	claw := &clawv1alpha1.Claw{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "test-refetch", Namespace: "default",
+			UID: "uid-refetch", Generation: 1,
+			Finalizers: []string{clawFinalizer}, // Already has finalizer.
+		},
+		Spec: clawv1alpha1.ClawSpec{Runtime: clawv1alpha1.RuntimeOpenClaw},
+	}
+
+	fakeClient := fake.NewClientBuilder().
+		WithScheme(scheme.Scheme).
+		WithObjects(claw).
+		WithStatusSubresource(claw).
+		Build()
+
+	// Track Get calls to Claw — fail on the second one (the re-fetch).
+	clawGetCount := 0
+	wrappedClient := interceptor.NewClient(fakeClient, interceptor.Funcs{
+		Get: func(ctx context.Context, c client.WithWatch, key client.ObjectKey, obj client.Object, opts ...client.GetOption) error {
+			if _, ok := obj.(*clawv1alpha1.Claw); ok {
+				clawGetCount++
+				if clawGetCount >= 2 {
+					return errSimulated
+				}
+			}
+			return c.Get(ctx, key, obj, opts...)
+		},
+	})
+
+	r := newFakeReconciler(wrappedClient)
+	_, err := r.Reconcile(ctx, ctrl.Request{
+		NamespacedName: types.NamespacedName{Name: "test-refetch", Namespace: "default"},
+	})
+	if err == nil {
+		t.Fatal("expected error from Reconcile re-fetch, got nil")
+	}
+	if !errors.Is(err, errSimulated) {
+		t.Errorf("expected simulated refetch error, got: %v", err)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// buildStatefulSet: injectChannelSidecars error + injectCredentials error
+// ---------------------------------------------------------------------------
+
+func TestBuildStatefulSet_InjectSidecarsError(t *testing.T) {
+	errSimulated := errors.New("simulated sidecar inject error")
+
+	fakeClient := fake.NewClientBuilder().WithScheme(scheme.Scheme).Build()
+	wrappedClient := interceptor.NewClient(fakeClient, interceptor.Funcs{
+		Get: func(ctx context.Context, c client.WithWatch, key client.ObjectKey, obj client.Object, opts ...client.GetOption) error {
+			if _, ok := obj.(*clawv1alpha1.ClawChannel); ok {
+				return errSimulated // Non-NotFound error.
+			}
+			return c.Get(ctx, key, obj, opts...)
+		},
+	})
+
+	r := newFakeReconciler(wrappedClient)
+	adapter, _ := r.Registry.Get(clawv1alpha1.RuntimeOpenClaw)
+
+	claw := &clawv1alpha1.Claw{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-sidecar-err", Namespace: "default", UID: "uid-se"},
+		Spec: clawv1alpha1.ClawSpec{
+			Runtime: clawv1alpha1.RuntimeOpenClaw,
+			Channels: []clawv1alpha1.ChannelRef{
+				{Name: "bad-ch", Mode: clawv1alpha1.ChannelModeInbound},
+			},
+		},
+	}
+
+	_, err := r.buildStatefulSet(ctx, claw, adapter)
+	if err == nil {
+		t.Fatal("expected error from buildStatefulSet inject sidecars, got nil")
+	}
+}
+
+func TestBuildStatefulSet_InjectCredentialsError(t *testing.T) {
+	errSimulated := errors.New("simulated secret error")
+
+	fakeClient := fake.NewClientBuilder().WithScheme(scheme.Scheme).Build()
+	wrappedClient := interceptor.NewClient(fakeClient, interceptor.Funcs{
+		Get: func(ctx context.Context, c client.WithWatch, key client.ObjectKey, obj client.Object, opts ...client.GetOption) error {
+			if _, ok := obj.(*corev1.Secret); ok {
+				return errSimulated
+			}
+			return c.Get(ctx, key, obj, opts...)
+		},
+	})
+
+	r := newFakeReconciler(wrappedClient)
+	adapter, _ := r.Registry.Get(clawv1alpha1.RuntimeOpenClaw)
+
+	claw := &clawv1alpha1.Claw{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-cred-err", Namespace: "default", UID: "uid-ce"},
+		Spec: clawv1alpha1.ClawSpec{
+			Runtime: clawv1alpha1.RuntimeOpenClaw,
+			Credentials: &clawv1alpha1.CredentialSpec{
+				SecretRef: &corev1.LocalObjectReference{Name: "missing-secret"},
+			},
+		},
+	}
+
+	_, err := r.buildStatefulSet(ctx, claw, adapter)
+	if err == nil {
+		t.Fatal("expected error from buildStatefulSet inject credentials, got nil")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// ensureStatefulSet: buildStatefulSet error (line 175-177)
+// ---------------------------------------------------------------------------
+
+func TestEnsureStatefulSet_BuildError(t *testing.T) {
+	errSimulated := errors.New("simulated secret error for build")
+
+	fakeClient := fake.NewClientBuilder().WithScheme(scheme.Scheme).Build()
+	wrappedClient := interceptor.NewClient(fakeClient, interceptor.Funcs{
+		Get: func(ctx context.Context, c client.WithWatch, key client.ObjectKey, obj client.Object, opts ...client.GetOption) error {
+			if _, ok := obj.(*corev1.Secret); ok {
+				return errSimulated
+			}
+			return c.Get(ctx, key, obj, opts...)
+		},
+	})
+
+	r := newFakeReconciler(wrappedClient)
+	adapter, _ := r.Registry.Get(clawv1alpha1.RuntimeOpenClaw)
+
+	claw := &clawv1alpha1.Claw{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-build-err", Namespace: "default", UID: "uid-be"},
+		Spec: clawv1alpha1.ClawSpec{
+			Runtime: clawv1alpha1.RuntimeOpenClaw,
+			Credentials: &clawv1alpha1.CredentialSpec{
+				SecretRef: &corev1.LocalObjectReference{Name: "missing-secret"},
+			},
+		},
+	}
+
+	err := r.ensureStatefulSet(ctx, claw, adapter)
+	if err == nil {
+		t.Fatal("expected error from ensureStatefulSet build, got nil")
+	}
+	if !containsSubstring(err.Error(), "build StatefulSet") {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// updateStatus: Pending phase (StatefulSet not found)
+// ---------------------------------------------------------------------------
+
+func TestUpdateStatus_PendingPhase(t *testing.T) {
+	claw := &clawv1alpha1.Claw{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-pending", Namespace: "default", UID: "uid-pend", Generation: 1},
+		Spec:       clawv1alpha1.ClawSpec{Runtime: clawv1alpha1.RuntimeOpenClaw},
+	}
+
+	// No StatefulSet exists → should be Pending.
+	fakeClient := fake.NewClientBuilder().
+		WithScheme(scheme.Scheme).
+		WithObjects(claw).
+		WithStatusSubresource(claw).
+		Build()
+
+	r := newFakeReconciler(fakeClient)
+
+	if err := r.updateStatus(ctx, claw); err != nil {
+		t.Fatalf("unexpected error from updateStatus: %v", err)
+	}
+
+	if claw.Status.Phase != clawv1alpha1.ClawPhasePending {
+		t.Errorf("expected phase Pending, got %s", claw.Status.Phase)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+func containsSubstring(s, substr string) bool {
+	return len(s) >= len(substr) && (s == substr || len(s) > 0 && containsHelper(s, substr))
+}
+
+func containsHelper(s, substr string) bool {
+	for i := 0; i <= len(s)-len(substr); i++ {
+		if s[i:i+len(substr)] == substr {
+			return true
+		}
+	}
+	return false
 }
