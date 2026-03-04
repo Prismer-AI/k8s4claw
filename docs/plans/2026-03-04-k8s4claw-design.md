@@ -1,7 +1,7 @@
 # k8s4claw Design Document
 
 **Date:** 2026-03-04
-**Status:** Approved (Rev 5 — final review fixes)
+**Status:** Approved (Rev 7 — RBAC + type consistency fixes)
 **Author:** Prismer-AI Team
 
 ## 1. Overview
@@ -51,11 +51,15 @@ spec:
   # Container image override (optional — defaults to built-in image per runtime, see Section 4.3)
   # image: ghcr.io/prismer-ai/k8s4claw-openclaw:v1.2.3
 
-  # Runtime-specific configuration (runtime.RawExtension — supports nested structures)
+  # Runtime-specific configuration (apiextensionsv1.JSON — supports nested structures)
   config:
     model: "claude-sonnet-4"
     workspace: "/workspace"
-    # Arbitrary runtime-specific config — passed as-is to the runtime container
+    # Supports nested/array values — passed as-is to the runtime container
+    features:
+      enableTools: true
+      maxTokens: 4096
+    allowedDomains: ["api.example.com", "cdn.example.com"]
 
   # Custom runtime container spec (only for runtime: custom, see Section 4.1)
   # customRuntime:
@@ -288,6 +292,7 @@ The Operator deploys validating and mutating webhooks:
 - Rejects `runAsUser: 0`, `privileged: true`, `SYS_ADMIN` capability (security enforcement)
 - Validates PVC size formats, storageClass references
 - Validates `lowWatermark < highWatermark` for backpressure config
+- Validates `healthTimeout` range (2m–30m), `schedule` cron format, `versionConstraint` semver syntax
 - **Note:** ClawChannel reference existence is validated during **reconcile** (not webhook), because channels may be created in any order and webhook validation would block legitimate multi-resource applies
 
 **Mutating webhook:**
@@ -421,7 +426,7 @@ type RuntimeBuilder interface {
 // RuntimeValidator validates CRD specs for a specific runtime.
 type RuntimeValidator interface {
     Validate(ctx context.Context, spec *v1alpha1.ClawSpec) field.ErrorList
-    ValidateUpdate(ctx context.Context, old, new *v1alpha1.ClawSpec) field.ErrorList
+    ValidateUpdate(ctx context.Context, oldSpec, newSpec *v1alpha1.ClawSpec) field.ErrorList
 }
 
 // RuntimeAdapter combines both for convenience.
@@ -645,7 +650,6 @@ Each runtime defines `GracefulShutdownSeconds()` via the `RuntimeBuilder` interf
    a. IPC Bus sends "shutdown" to all sidecars (drain in-flight messages)
    b. IPC Bus flushes WAL to disk
    c. Runtime saves session state to PVC
-   d. Snapshot sidecar takes final snapshot (if enabled)
    ↓
 3. SIGTERM → runtime process exits
    ↓
@@ -684,6 +688,7 @@ ctrl.NewControllerManagedBy(mgr).
     Owns(&monitoringv1.ServiceMonitor{}).
     Owns(&monitoringv1.PrometheusRule{}).
     Owns(&snapshotv1.VolumeSnapshot{}).
+    Owns(&externalsecretsv1.ExternalSecret{}).
     Watches(&v1alpha1.ClawChannel{}, handler.EnqueueRequestsFromMapFunc(channelToClawMapper)).
     Watches(&v1alpha1.ClawSelfConfig{}, handler.EnqueueRequestsFromMapFunc(selfConfigToClawMapper)).
     Watches(&corev1.Secret{}, handler.EnqueueRequestsFromMapFunc(secretToClawMapper),
@@ -691,9 +696,9 @@ ctrl.NewControllerManagedBy(mgr).
     Complete(r)
 ```
 
-The `secretToClawMapper` uses a field indexer on `spec.credentials.secretRef.name` to efficiently map Secret changes to owning Claws.
+The `secretToClawMapper` uses a field indexer on `spec.credentials.secretRef.name` to efficiently map Secret changes to owning Claws. For the `externalSecret` path, the Operator also indexes on the ExternalSecret's target Secret name (convention: `<claw-name>-credentials`). When the external-secrets-operator syncs/rotates the Secret, the indexer maps it back to the owning Claw, triggering Secret hash recomputation and rolling update.
 
-**Optional CRD registration:** `ServiceMonitor`, `PrometheusRule`, and `VolumeSnapshot` are optional CRDs. The controller checks for CRD existence at startup (via discovery API) and conditionally registers `Owns()` watches. If the CRD is not installed, the Operator skips creating those resources and logs a warning.
+**Optional CRD registration:** `ServiceMonitor`, `PrometheusRule`, `VolumeSnapshot`, and `ExternalSecret` are optional CRDs. The controller checks for CRD existence at startup (via discovery API) and conditionally registers `Owns()` watches. If a CRD is not installed, the Operator skips creating those resources and logs a warning.
 
 ## 5. IPC Bus + Channel Sidecar
 
@@ -721,6 +726,16 @@ type ClawMessage struct {
     Media         []MediaAttachment `json:"media,omitempty"`
     Metadata      map[string]any    `json:"metadata,omitempty"`
     Timestamp     time.Time         `json:"ts"`
+}
+```
+
+```go
+type MediaAttachment struct {
+    Type     string `json:"type"`               // "image" | "file" | "audio" | "video"
+    URL      string `json:"url,omitempty"`       // Remote URL
+    Data     []byte `json:"data,omitempty"`      // Inline base64 data
+    MimeType string `json:"mime_type,omitempty"` // e.g., "image/png"
+    Filename string `json:"filename,omitempty"`
 }
 ```
 
@@ -1153,10 +1168,15 @@ rules:
     resources: [pods, services, persistentvolumeclaims, secrets, events, configmaps]
     verbs: [get, list, watch, create, update, patch, delete]
 
-  # Native sidecars
+  # Workload management
+  - apiGroups: ["apps"]
+    resources: [statefulsets]
+    verbs: [get, list, watch, create, update, patch, delete]
+
+  # Operator-initiated session flush (e.g., before auto-update backup)
   - apiGroups: [""]
     resources: [pods/exec]
-    verbs: [create]    # For preStop session flush
+    verbs: [create]
 
   # Networking
   - apiGroups: ["networking.k8s.io"]
@@ -1171,10 +1191,15 @@ rules:
     resources: [roles, rolebindings]
     verbs: [get, list, watch, create, update, patch, delete]
 
-  # Autoscaling
+  # Availability / Disruption management
   - apiGroups: ["policy"]
     resources: [poddisruptionbudgets]
     verbs: [get, list, watch, create, update, patch, delete]
+
+  # Backup Jobs (pre-update S3 fallback, see Section 12.2)
+  - apiGroups: ["batch"]
+    resources: [jobs]
+    verbs: [get, list, watch, create, delete]
 
   # CSI VolumeSnapshots
   - apiGroups: ["snapshot.storage.k8s.io"]
@@ -1189,7 +1214,7 @@ rules:
   # CRDs
   - apiGroups: ["claw.prismer.ai"]
     resources: [claws, claws/status, claws/finalizers,
-                clawchannels, clawchannels/status,
+                clawchannels, clawchannels/status, clawchannels/finalizers,
                 clawselfconfigs, clawselfconfigs/status]
     verbs: [get, list, watch, create, update, patch, delete]
 
@@ -1313,7 +1338,7 @@ Even for single-replica deployments, PDB prevents `kubectl drain` from evicting 
 | `Degraded` | Pod running but one or more conditions unhealthy (e.g., channel disconnected, storage issue) |
 | `Failed` | Pod crash-looping or unrecoverable error |
 | `Terminating` | Deletion in progress (finalizers running) |
-| `Updating` | Auto-update in progress (Phase 2/3 of update state machine) |
+| `Updating` | Auto-update in progress (Phase 1: pre-backup, Phase 2: image update, Phase 3: health verification) |
 
 **Channel status values:** `Initializing` | `Connected` | `Reconnecting` | `Disconnected` | `Error`
 
@@ -1545,7 +1570,9 @@ adapter.OnStream(func(stream *channel.Stream) {
     })
 })
 
-adapter.Run() // connects to /var/run/claw/bus.sock
+if err := adapter.Run(); err != nil { // connects to /var/run/claw/bus.sock
+    log.Fatalf("failed to run adapter: %v", err)
+}
 ```
 
 ## 12. Auto-Update + Circuit Breaker
@@ -1569,9 +1596,10 @@ Idle
   → New version detected
   → Phase 1: Pre-backup (if spec.autoUpdate.preBackup: true)
     → Scale StatefulSet to 0 → Wait for Pod termination
-    → PVC becomes unbound (RWO released) → backup Job can mount it
-    → Create backup via CSI VolumeSnapshot (preferred) or archive sidecar S3 upload logic (reused, no rclone dependency)
-    → Job mounts session/workspace PVCs as read-only (PVC now available since Pod is gone)
+    → PVC becomes unmounted (RWO no longer attached to a node)
+    → Preferred: Create CSI VolumeSnapshot directly (no Job needed, Operator calls snapshot.storage.k8s.io API)
+    → Fallback (no CSI driver): Create a temporary batch/v1 Job that mounts session/workspace PVCs as read-only
+      and uploads to S3-compatible storage using the archive library code (same Go package as archive sidecar, linked as a library — no running sidecar)
     → Wait for backup completion (timeout: 30m default)
   → Phase 2: Apply update
     → Update image tag in StatefulSet spec
@@ -1898,3 +1926,31 @@ Note: Issue numbers C3, H3 are intentionally skipped — they were identified du
 | L3: Repeated security defaults | LOW | Replaced with cross-reference to Section 4.7 (Section 3.1) |
 | L4: Channel status not enumerated | LOW | Added formal enum in Section 10.1 |
 | L5: Archive scope unclear | LOW | Clarified S3-compatible only (Section 7.2) |
+
+## Appendix E: Final Consistency Fixes (Rev 6)
+
+| Issue | Severity | Fix |
+|-------|----------|-----|
+| H1: Backup Job RBAC missing `batch` apiGroup | HIGH | Added `batch` apiGroup for Jobs + clarified CSI preferred / S3 Job fallback (Section 9.3.1, 12.2) |
+| M1: Phantom "Snapshot sidecar" in preStop | MEDIUM | Removed step d from shutdown sequence — snapshots handled by Operator, not Pod (Section 4.8) |
+| M2: `Updating` phase excludes Phase 1 | MEDIUM | Expanded to cover all 3 phases: pre-backup, image update, health verification (Section 10.1) |
+| M3: Go parameter `new` shadows builtin | MEDIUM | Renamed to `oldSpec, newSpec` in RuntimeValidator interface (Section 4.1) |
+| M4: RBAC missing `clawchannels/finalizers` | MEDIUM | Added `clawchannels/finalizers` for consistency with `claws/finalizers` (Section 9.3.1) |
+| M5: Backup flow wording conflates sidecar vs library | MEDIUM | Clarified: fallback Job uses archive library code linked as Go package (Section 12.2) |
+| L1: `spec.config` only shows flat KV | LOW | Added nested object + array example demonstrating RawExtension capability (Section 3.1) |
+| L2: preStop step d cannot call K8s API from Pod | LOW | Removed — Operator handles snapshots via finalizer (Section 4.8) |
+
+## Appendix F: RBAC + Type Consistency Fixes (Rev 7)
+
+| Issue | Severity | Fix |
+|-------|----------|-----|
+| C1: RBAC missing `apps` apiGroup for StatefulSets | CRITICAL | Added `apps` apiGroup with `statefulsets` resource (Section 9.3.1) |
+| H1: Secret watch indexer ignores ExternalSecret Secrets | HIGH | Documented ExternalSecret target Secret indexing convention `<claw-name>-credentials` (Section 4.9) |
+| M1: `MediaAttachment` type used but never defined | MEDIUM | Added struct definition with type/URL/data/mime/filename fields (Section 5.2) |
+| M2: Inconsistent config types (RawExtension vs JSON) | MEDIUM | Unified both `Claw.spec.config` and `ClawChannel.spec.config` to `apiextensionsv1.JSON` (Section 3.1) |
+| M3: `pods/exec` RBAC comment incorrect | MEDIUM | Updated comment: operator-initiated session flush before auto-update backup (Section 9.3.1) |
+| M4: Webhook validation list incomplete | MEDIUM | Added `healthTimeout` range, `schedule` cron, `versionConstraint` semver validations (Section 3.4) |
+| L1: RBAC comment "Autoscaling" misleading | LOW | Changed to "Availability / Disruption management" (Section 9.3.1) |
+| L2: "PVC becomes unbound" imprecise | LOW | Changed to "PVC becomes unmounted (RWO no longer attached to a node)" (Section 12.2) |
+| L3: `adapter.Run()` error not captured | LOW | Added `if err := adapter.Run()` error handling (Section 11.2) |
+| L4: Missing ExternalSecret in Owns() | LOW | Added `Owns(&externalsecretsv1.ExternalSecret{})` to optional CRD watches (Section 4.9) |
