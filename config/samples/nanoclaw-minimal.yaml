@@ -1,0 +1,27 @@
+apiVersion: claw.prismer.ai/v1alpha1
+kind: Claw
+metadata:
+  name: personal-agent
+spec:
+  runtime: nanoclaw
+
+  credentials:
+    secretRef:
+      name: anthropic-key
+
+  persistence:
+    reclaimPolicy: Retain
+    session:
+      enabled: true
+      size: 1Gi
+      maxSize: 5Gi
+      mountPath: /data/session
+    workspace:
+      enabled: true
+      size: 5Gi
+      maxSize: 20Gi
+      mountPath: /workspace
+
+  observability:
+    metrics: true
+    logs: true

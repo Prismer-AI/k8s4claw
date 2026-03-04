@@ -1,0 +1,31 @@
+apiVersion: claw.prismer.ai/v1alpha1
+kind: Claw
+metadata:
+  name: edge-agent
+spec:
+  runtime: zeroclaw
+
+  config:
+    model: "local-llama"
+
+  credentials:
+    secretRef:
+      name: edge-api-keys
+
+  persistence:
+    reclaimPolicy: Delete
+    workspace:
+      enabled: true
+      storageClass: local-path
+      size: 5Gi
+      maxSize: 20Gi
+      mountPath: /workspace
+    cache:
+      enabled: true
+      medium: Memory
+      size: 256Mi
+      mountPath: /data/cache
+
+  observability:
+    metrics: true
+    logs: true

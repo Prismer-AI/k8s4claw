@@ -1,0 +1,71 @@
+apiVersion: claw.prismer.ai/v1alpha1
+kind: Claw
+metadata:
+  name: research-agent
+spec:
+  runtime: openclaw
+
+  config:
+    model: "claude-sonnet-4"
+
+  credentials:
+    secretRef:
+      name: llm-api-keys
+
+  channels:
+    - name: slack-team
+      mode: bidirectional
+
+  persistence:
+    reclaimPolicy: Retain
+    session:
+      enabled: true
+      storageClass: fast-ssd
+      size: 2Gi
+      maxSize: 20Gi
+      mountPath: /data/session
+      snapshot:
+        enabled: true
+        schedule: "*/30 * * * *"
+        retain: 5
+    output:
+      enabled: true
+      storageClass: standard
+      size: 20Gi
+      maxSize: 200Gi
+      mountPath: /data/output
+    workspace:
+      enabled: true
+      storageClass: standard
+      size: 10Gi
+      maxSize: 100Gi
+      mountPath: /workspace
+    cache:
+      enabled: true
+      medium: Memory
+      size: 512Mi
+      mountPath: /data/cache
+
+  observability:
+    metrics: true
+    logs: true
+---
+apiVersion: claw.prismer.ai/v1alpha1
+kind: ClawChannel
+metadata:
+  name: slack-team
+spec:
+  type: slack
+  mode: bidirectional
+  credentials:
+    secretRef:
+      name: slack-bot-token
+  config:
+    appId: "A0123456789"
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 128Mi

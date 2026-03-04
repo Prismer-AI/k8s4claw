@@ -1,0 +1,59 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: k8s4claw-operator
+  namespace: k8s4claw-system
+  labels:
+    app.kubernetes.io/name: k8s4claw-operator
+    app.kubernetes.io/part-of: k8s4claw
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: k8s4claw-operator
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: k8s4claw-operator
+    spec:
+      serviceAccountName: k8s4claw-operator
+      terminationGracePeriodSeconds: 10
+      containers:
+        - name: operator
+          image: ghcr.io/prismer-ai/k8s4claw:latest
+          args:
+            - --leader-elect
+            - --health-probe-bind-address=:8081
+            - --metrics-bind-address=:8080
+          ports:
+            - name: metrics
+              containerPort: 8080
+              protocol: TCP
+            - name: health
+              containerPort: 8081
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8081
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: 8081
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+      securityContext:
+        runAsNonRoot: true
