@@ -84,9 +84,6 @@ func (r *ClawReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 		return ctrl.Result{}, fmt.Errorf("failed to update status: %w", err)
 	}
 
-	// TODO: implement remaining reconciliation phases:
-	// - Ensure PVCs exist
-
 	return ctrl.Result{}, nil
 }
 
