@@ -86,6 +86,13 @@ type ClawChannelStatus struct {
 
 	// ObservedGeneration is the most recent generation observed by the controller.
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
+
+	// ReferenceCount is the number of Claw resources referencing this channel.
+	ReferenceCount int `json:"referenceCount,omitempty"`
+
+	// ReferencingClaws lists the names of Claw resources referencing this channel.
+	// +optional
+	ReferencingClaws []string `json:"referencingClaws,omitempty"`
 }
 
 // +kubebuilder:object:root=true

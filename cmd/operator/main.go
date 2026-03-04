@@ -76,7 +76,13 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "Claw")
 		os.Exit(1)
 	}
-	// TODO: register ClawChannelReconciler
+	if err := (&controller.ClawChannelReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "ClawChannel")
+		os.Exit(1)
+	}
 
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
 		setupLog.Error(err, "unable to set up health check")

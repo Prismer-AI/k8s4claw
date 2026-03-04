@@ -866,6 +866,16 @@ spec:
                   by the controller.
                 format: int64
                 type: integer
+              referenceCount:
+                description: ReferenceCount is the number of Claw resources referencing
+                  this channel.
+                type: integer
+              referencingClaws:
+                description: ReferencingClaws lists the names of Claw resources referencing
+                  this channel.
+                items:
+                  type: string
+                type: array
             type: object
         type: object
     served: true

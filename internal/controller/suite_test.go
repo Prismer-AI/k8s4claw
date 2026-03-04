@@ -77,6 +77,14 @@ func TestMain(m *testing.M) {
 		panic("failed to set up ClawReconciler: " + err.Error())
 	}
 
+	// Set up the ClawChannelReconciler.
+	if err := (&ClawChannelReconciler{
+		Client: mgr.GetClient(),
+		Scheme: mgr.GetScheme(),
+	}).SetupWithManager(mgr); err != nil {
+		panic("failed to set up ClawChannelReconciler: " + err.Error())
+	}
+
 	// Start manager in a goroutine.
 	go func() {
 		if err := mgr.Start(ctx); err != nil {
