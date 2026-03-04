@@ -1,7 +1,7 @@
 # k8s4claw Design Document
 
 **Date:** 2026-03-04
-**Status:** Approved (Rev 8 — final polish)
+**Status:** Approved (Rev 9 — code-design alignment)
 **Author:** Prismer-AI Team
 
 ## 1. Overview
@@ -299,7 +299,7 @@ The Operator deploys validating and mutating webhooks:
 - Sets default `reclaimPolicy: Retain` if not specified
 - Sets default storageClass from cluster default if not specified
 - Sets default resource limits for IPC Bus and built-in sidecars
-- Injects standard labels and annotations
+- Injects standard labels (`app.kubernetes.io/name: claw`, `app.kubernetes.io/instance: <claw-name>`, `claw.prismer.ai/runtime: <runtime-type>`, `claw.prismer.ai/instance: <claw-name>`) and annotations on all owned resources via the shared `clawLabels()` helper
 
 ### 3.5 API Versioning Strategy
 
@@ -445,6 +445,27 @@ type RuntimeConfig struct {
 
 New runtimes only need to implement `RuntimeAdapter`.
 
+**Internal `RuntimeSpec` struct:** Each adapter's `PodTemplate()` implementation delegates to a shared `BuildPodTemplate()` function that takes a `RuntimeSpec` — an internal struct capturing the runtime-specific pod configuration:
+
+```go
+type RuntimeSpec struct {
+    Image             string
+    Command           []string
+    Args              []string
+    Ports             []corev1.ContainerPort
+    Resources         corev1.ResourceRequirements
+    ExtraVolumeMounts []corev1.VolumeMount   // adapter-specific mounts (e.g. NanoClaw UDS socket)
+    ExtraVolumes      []corev1.Volume        // adapter-specific volumes
+    Env               []corev1.EnvVar
+    LivenessProbe     *corev1.Probe
+    ReadinessProbe    *corev1.Probe
+    ConfigMode        ConfigMergeMode        // Overwrite | DeepMerge | Passthrough
+    WorkspacePath     string
+}
+```
+
+This struct is NOT part of the public API — it is an implementation detail that centralizes pod construction logic in `internal/runtime/pod_builder.go`.
+
 **Custom runtime support (`runtime: custom`):** For runtimes not built into the Operator, users provide the complete container spec directly in the Claw CR:
 
 ```yaml
@@ -525,7 +546,7 @@ Channel sidecars connect to the Bus via Unix Domain Socket. If the Bus (and runt
 **Key design decisions:**
 - IPC Bus is a co-process (not sidecar) → shares lifecycle with runtime, no restart-gap
 - WAL stored on `emptyDir` named `wal-data` → survives container restart, acceptable loss on pod eviction (sidecars re-buffer)
-- Channel sidecars are K8s native sidecars (init containers with `restartPolicy: Always`) → guaranteed to start before runtime and survive runtime restarts
+- Channel sidecars are K8s native sidecars (init containers with `restartPolicy: Always`) → guaranteed to start before runtime and survive runtime restarts. Controlled by the `--enable-native-sidecars` operator flag (default `true`). Set `false` for clusters running K8s < 1.28 where the `SidecarContainers` feature gate is not available — sidecars will be injected as regular containers instead
 - Init container runs before everything else → ensures config, workspace, and skills are ready before runtime starts
 - `readOnlyRootFilesystem: true` on all containers → writable paths via explicit volume mounts (`/tmp`, `/data`, `/var/run/claw`)
 - Archive sidecar is a native sidecar (not CronJob) → shares PVC access, solves mount problem
@@ -557,13 +578,13 @@ The Operator manages Claw instances as **StatefulSet** (not Deployment). Rationa
 
 | Factor | StatefulSet | Deployment |
 |--------|-------------|------------|
-| PVC binding | Compatible with Operator-managed PVCs (stable pod name → deterministic PVC refs) | Random pod name complicates PVC naming |
+| PVC binding | `volumeClaimTemplates` with stable pod name → deterministic PVC names | Random pod name complicates PVC naming |
 | Network identity | Stable hostname (`<name>-0`) | Random pod name |
 | Ordered shutdown | Guaranteed (critical for WAL flush) | Best-effort |
 | Scale-to-zero | Clean (preserves PVCs) | PVCs may be orphaned |
 | Auto-update | `OnDelete` or `RollingUpdate` with partition | `RollingUpdate` or `Recreate` (no per-pod control) |
 
-Key: AI agents are **stateful workloads** — they have session PVCs, WAL data, and workspace. PVCs are managed directly by the Operator (with `ownerReferences` to the Claw CR), not via StatefulSet `volumeClaimTemplates`. StatefulSet is chosen primarily for stable hostname, ordered shutdown guarantees, and future multi-replica support.
+Key: AI agents are **stateful workloads** — they have session PVCs, WAL data, and workspace. PVCs are provisioned via StatefulSet `volumeClaimTemplates` and labeled with `claw.prismer.ai/instance: <name>` for discovery during reclaim-policy enforcement. StatefulSet is chosen primarily for stable hostname, deterministic PVC naming, ordered shutdown guarantees, and future multi-replica support.
 
 When `replicas` is introduced in a future API version, StatefulSet's ordered scaling and stable network identity will also be required for multi-instance coordination.
 
@@ -1783,13 +1804,35 @@ k8s4claw/
 │   │   ├── nanoclaw.Dockerfile
 │   │   └── zeroclaw.Dockerfile
 │   └── scripts/               # Dev scripts
+├── .github/
+│   └── workflows/
+│       ├── ci.yml                # Lint, test, build, verify-codegen, DCO check
+│       ├── codeql.yml            # CodeQL security + quality analysis (weekly + PR/push)
+│       └── release.yml           # Tag-triggered: test → build multi-arch image → cosign sign → GH Release
 ├── Dockerfile
 ├── Makefile
 ├── go.mod
 ├── go.sum
 ├── LICENSE
+├── CONTRIBUTING.md               # Contribution guidelines, DCO sign-off requirement
+├── CODE_OF_CONDUCT.md            # Contributor Covenant
+├── SECURITY.md                   # Vulnerability reporting policy
 └── README.md
 ```
+
+### 13.1 CI/CD Workflows
+
+| Workflow | Trigger | Jobs |
+|----------|---------|------|
+| **CI** (`ci.yml`) | Push to `main`, PRs | `lint` (golangci-lint v2), `test` (envtest + race), `build` (compile + vet), `verify-codegen` (deepcopy drift check), `dco` (Signed-off-by check on PRs) |
+| **CodeQL** (`codeql.yml`) | Push to `main`, PRs, weekly schedule (Mon 06:00 UTC) | Go security + quality analysis via `security-and-quality` query suite |
+| **Release** (`release.yml`) | Tag push (`v*`) | Test → Build multi-arch image (`linux/amd64`, `linux/arm64`) → Push to GHCR → Cosign keyless signing → GitHub Release with CRD manifests |
+
+**Key CI design decisions:**
+- Path filtering via `dorny/paths-filter` — lint/test/build only run when Go sources change
+- All GitHub Actions pinned to full commit SHAs (supply chain protection)
+- `setup-envtest` provides etcd + kube-apiserver binaries for controller integration tests
+- Release images are signed with Cosign keyless (Sigstore OIDC) for supply chain verification
 
 ## 14. Implementation Phases
 
@@ -1972,8 +2015,20 @@ Note: Issue numbers C3, H3 are intentionally skipped — they were identified du
 |-------|----------|-----|
 | M1: NetworkPolicy port 443 covers K8s API | MEDIUM | Documented trade-off: mitigated by no-token-mount default, added explanatory comment (Section 9.2) |
 | M2: "Gateway token" undefined | MEDIUM | Removed undefined concept, updated comment to reference Secret hash (Section 13) |
-| M3: ADR overstates PVC binding benefit | MEDIUM | Clarified PVCs are Operator-managed, not via volumeClaimTemplates; listed actual StatefulSet benefits (Section 4.4) |
+| M3: ADR PVC management strategy | MEDIUM | Updated to use StatefulSet `volumeClaimTemplates` with label-based discovery for reclaim-policy enforcement (Section 4.4) |
 | L1: ADR Deployment update strategy imprecise | LOW | Added `Recreate` strategy, noted "no per-pod control" (Section 4.4) |
 | L2: SDK example missing `ctx` declaration | LOW | Added `ctx := context.Background()` (Section 11.1) |
 | L3: Channel SDK `feishu` undeclared | LOW | Added `feishu := lark.NewClient()` placeholder (Section 11.2) |
 | L4: Redundant "Runtime data" row | LOW | Merged into "Session state (incl. runtime data)" (Section 7.1) |
+
+## Appendix H: Code-Design Alignment (Rev 9)
+
+| Item | Type | Fix |
+|------|------|-----|
+| E1: `--enable-native-sidecars` flag | EXTRA | Documented operator CLI flag for native sidecar toggle (default `true`, set `false` for K8s < 1.28) (Section 4.2) |
+| E2: Standard K8s labels (`clawLabels()`) | EXTRA | Documented `app.kubernetes.io/name`, `app.kubernetes.io/instance`, `claw.prismer.ai/runtime`, `claw.prismer.ai/instance` labels applied to all owned resources (Section 3.4) |
+| E3: Internal `RuntimeSpec` struct | EXTRA | Documented `RuntimeSpec` struct used by adapters to configure pod construction via `BuildPodTemplate()` (Section 4.1) |
+| E4: CI/CD workflows (CodeQL, Release) | EXTRA | Added Section 13.1 documenting CI, CodeQL, and Release workflows with design decisions |
+| E5: Community files | EXTRA | Added CONTRIBUTING.md, CODE_OF_CONDUCT.md, SECURITY.md to project structure (Section 13) |
+| M4: RBAC missing `apps` apiGroup + `serviceaccounts` | MISMATCH | Added to `config/rbac/role.yaml` (Section 9.3.1) |
+| M5: ClawChannel cross-resource watch missing | MISMATCH | Added `Watches(&ClawChannel{})` with `findClawsForChannel` mapper to Claw controller |
