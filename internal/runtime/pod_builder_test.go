@@ -389,8 +389,8 @@ func TestBuildInitContainer(t *testing.T) {
 	if ic.Name != "claw-init" {
 		t.Errorf("Name = %q; want %q", ic.Name, "claw-init")
 	}
-	if ic.Image != "ghcr.io/prismer-ai/claw-init:latest" {
-		t.Errorf("Image = %q; want %q", ic.Image, "ghcr.io/prismer-ai/claw-init:latest")
+	if ic.Image != InitContainerImage {
+		t.Errorf("Image = %q; want %q", ic.Image, InitContainerImage)
 	}
 
 	// Verify command.
@@ -461,6 +461,31 @@ func TestBuildInitContainer(t *testing.T) {
 		t.Fatal("SecurityContext is nil")
 	}
 	assertSecurityContext(t, ic.SecurityContext)
+}
+
+// ---------------------------------------------------------------------------
+// TestBuildInitContainer_DefaultConfigMode
+// ---------------------------------------------------------------------------
+
+func TestBuildInitContainer_DefaultConfigMode(t *testing.T) {
+	t.Parallel()
+
+	claw := minimalClaw()
+	spec := minimalSpec()
+	spec.ConfigMode = "" // zero value should default to overwrite
+
+	ic := buildInitContainer(claw, spec)
+
+	// Verify --mode defaults to overwrite.
+	for i, arg := range ic.Args {
+		if arg == "--mode" && i+1 < len(ic.Args) {
+			if ic.Args[i+1] != "overwrite" {
+				t.Errorf("default --mode = %q; want %q", ic.Args[i+1], "overwrite")
+			}
+			return
+		}
+	}
+	t.Error("--mode argument not found in init container args")
 }
 
 // ---------------------------------------------------------------------------
@@ -1006,8 +1031,9 @@ func TestConfigMergeMode(t *testing.T) {
 
 // envToMap converts a slice of EnvVar to a map for lookup.
 // For duplicates, last value wins (matching Kubernetes behavior).
+// NOTE: Only captures .Value; .ValueFrom is ignored.
 func envToMap(envs []corev1.EnvVar) map[string]string {
-	m := make(map[string]string)
+	m := make(map[string]string, len(envs))
 	for _, e := range envs {
 		m[e.Name] = e.Value
 	}
@@ -1016,7 +1042,7 @@ func envToMap(envs []corev1.EnvVar) map[string]string {
 
 // mountsToMap converts a slice of VolumeMount to a map keyed by Name.
 func mountsToMap(mounts []corev1.VolumeMount) map[string]corev1.VolumeMount {
-	m := make(map[string]corev1.VolumeMount)
+	m := make(map[string]corev1.VolumeMount, len(mounts))
 	for _, vm := range mounts {
 		m[vm.Name] = vm
 	}

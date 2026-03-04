@@ -20,6 +20,10 @@ const (
 	ConfigModePassthrough ConfigMergeMode = "passthrough"
 )
 
+// InitContainerImage is the default claw-init container image.
+// TODO(release): Pin to operator version at build time via ldflags.
+var InitContainerImage = "ghcr.io/prismer-ai/claw-init:latest"
+
 // RuntimeSpec defines the runtime-specific pod configuration provided by each adapter.
 type RuntimeSpec struct {
 	Image             string
@@ -199,7 +203,7 @@ func buildInitContainer(claw *v1alpha1.Claw, spec *RuntimeSpec) corev1.Container
 
 	return corev1.Container{
 		Name:    "claw-init",
-		Image:   "ghcr.io/prismer-ai/claw-init:latest",
+		Image:   InitContainerImage,
 		Command: []string{"/claw-init"},
 		Args: []string{
 			"--mode", configMode,

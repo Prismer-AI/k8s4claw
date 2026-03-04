@@ -3,7 +3,6 @@ package controller
 import (
 	"context"
 	"fmt"
-	"sort"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -238,22 +237,6 @@ func (r *ClawReconciler) buildStatefulSet(claw *clawv1alpha1.Claw, adapter clawr
 	gracePeriod := int64(adapter.GracefulShutdownSeconds()) + 10
 	podTemplate.Spec.TerminationGracePeriodSeconds = &gracePeriod
 
-	// If the adapter returned no containers, inject a placeholder runtime container.
-	if len(podTemplate.Spec.Containers) == 0 {
-		envVars := buildEnvVars(adapter.DefaultConfig().Environment)
-
-		podTemplate.Spec.Containers = []corev1.Container{
-			{
-				Name:            "runtime",
-				Image:           "busybox:latest",
-				Env:             envVars,
-				LivenessProbe:   adapter.HealthProbe(claw),
-				ReadinessProbe:  adapter.ReadinessProbe(claw),
-				SecurityContext: containerSecurityContext(),
-			},
-		}
-	}
-
 	return &appsv1.StatefulSet{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      claw.Name,
@@ -261,51 +244,13 @@ func (r *ClawReconciler) buildStatefulSet(claw *clawv1alpha1.Claw, adapter clawr
 			Labels:    labels,
 		},
 		Spec: appsv1.StatefulSetSpec{
-			Replicas:    &replicas,
-			ServiceName: claw.Name,
-			Selector: &metav1.LabelSelector{
-				MatchLabels: labels,
-			},
-			Template: *podTemplate,
+			Replicas:             &replicas,
+			ServiceName:          claw.Name,
+			Selector:             &metav1.LabelSelector{MatchLabels: labels},
+			Template:             *podTemplate,
+			VolumeClaimTemplates: clawruntime.BuildVolumeClaimTemplates(claw),
 		},
 	}
-}
-
-// containerSecurityContext returns the hardened security context for the runtime container.
-func containerSecurityContext() *corev1.SecurityContext {
-	return &corev1.SecurityContext{
-		RunAsUser:                ptr.To(int64(1000)),
-		RunAsGroup:               ptr.To(int64(1000)),
-		RunAsNonRoot:             ptr.To(true),
-		ReadOnlyRootFilesystem:   ptr.To(true),
-		AllowPrivilegeEscalation: ptr.To(false),
-		Capabilities: &corev1.Capabilities{
-			Drop: []corev1.Capability{"ALL"},
-		},
-		SeccompProfile: &corev1.SeccompProfile{
-			Type: corev1.SeccompProfileTypeRuntimeDefault,
-		},
-	}
-}
-
-// buildEnvVars converts a map of environment variables to a sorted slice of EnvVar.
-func buildEnvVars(env map[string]string) []corev1.EnvVar {
-	if len(env) == 0 {
-		return nil
-	}
-
-	// Sort keys for deterministic ordering.
-	keys := make([]string, 0, len(env))
-	for k := range env {
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
-
-	vars := make([]corev1.EnvVar, 0, len(env))
-	for _, k := range keys {
-		vars = append(vars, corev1.EnvVar{Name: k, Value: env[k]})
-	}
-	return vars
 }
 
 func (r *ClawReconciler) SetupWithManager(mgr ctrl.Manager) error {
