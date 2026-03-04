@@ -2,6 +2,8 @@ package controller
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -77,9 +79,18 @@ func TestMain(m *testing.M) {
 	// Start manager in a goroutine.
 	go func() {
 		if err := mgr.Start(ctx); err != nil {
-			panic("failed to start manager: " + err.Error())
+			if !errors.Is(err, context.Canceled) {
+				fmt.Fprintf(os.Stderr, "manager exited with error: %v\n", err)
+				os.Exit(1)
+			}
 		}
 	}()
+
+	// Wait for informer caches to sync before running tests.
+	if !mgr.GetCache().WaitForCacheSync(ctx) {
+		fmt.Fprintln(os.Stderr, "timed out waiting for informer caches to sync")
+		os.Exit(1)
+	}
 
 	// Create a client for tests.
 	k8sClient = mgr.GetClient()

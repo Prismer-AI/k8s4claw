@@ -460,6 +460,7 @@ spec:
                 - openclaw
                 - nanoclaw
                 - zeroclaw
+                - picoclaw
                 - custom
                 type: string
               serviceAccount:

@@ -12,6 +12,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
 	clawv1alpha1 "github.com/Prismer-AI/k8s4claw/api/v1alpha1"
+	"github.com/Prismer-AI/k8s4claw/internal/controller"
+	clawruntime "github.com/Prismer-AI/k8s4claw/internal/runtime"
 )
 
 var (
@@ -49,9 +51,23 @@ func main() {
 		os.Exit(1)
 	}
 
-	// TODO: register controllers
-	// - ClawReconciler
-	// - ClawChannelReconciler
+	// Register runtime adapters.
+	registry := clawruntime.NewRegistry()
+	registry.Register(clawv1alpha1.RuntimeOpenClaw, &clawruntime.OpenClawAdapter{})
+	registry.Register(clawv1alpha1.RuntimeNanoClaw, &clawruntime.NanoClawAdapter{})
+	registry.Register(clawv1alpha1.RuntimeZeroClaw, &clawruntime.ZeroClawAdapter{})
+	registry.Register(clawv1alpha1.RuntimePicoClaw, &clawruntime.PicoClawAdapter{})
+
+	// Register controllers.
+	if err := (&controller.ClawReconciler{
+		Client:   mgr.GetClient(),
+		Scheme:   mgr.GetScheme(),
+		Registry: registry,
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "Claw")
+		os.Exit(1)
+	}
+	// TODO: register ClawChannelReconciler
 
 	if err := mgr.AddHealthzCheck("healthz", healthz.Ping); err != nil {
 		setupLog.Error(err, "unable to set up health check")
