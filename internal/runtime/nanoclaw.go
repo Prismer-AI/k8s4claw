@@ -15,8 +15,21 @@ type NanoClawAdapter struct{}
 var _ RuntimeAdapter = (*NanoClawAdapter)(nil)
 
 func (a *NanoClawAdapter) PodTemplate(claw *v1alpha1.Claw) *corev1.PodTemplateSpec {
-	// TODO: implement NanoClaw pod template with IPC Bus + NanoClaw bridge adapter co-processes
-	return &corev1.PodTemplateSpec{}
+	return BuildPodTemplate(claw, a.runtimeSpec(claw))
+}
+
+func (a *NanoClawAdapter) runtimeSpec(claw *v1alpha1.Claw) *RuntimeSpec {
+	return &RuntimeSpec{
+		Image:          "ghcr.io/prismer-ai/k8s4claw-nanoclaw:latest",
+		Command:        []string{"/usr/bin/claw-entrypoint"},
+		Ports:          []corev1.ContainerPort{{Name: "gateway", ContainerPort: 19000, Protocol: corev1.ProtocolTCP}},
+		Resources:      resources("100m", "256Mi", "500m", "512Mi"),
+		ConfigMode:     ConfigModeOverwrite,
+		WorkspacePath:  "/workspace",
+		Env:            []corev1.EnvVar{{Name: "NANOCLAW_MODE", Value: "container"}},
+		LivenessProbe:  a.HealthProbe(claw),
+		ReadinessProbe: a.ReadinessProbe(claw),
+	}
 }
 
 func (a *NanoClawAdapter) HealthProbe(_ *v1alpha1.Claw) *corev1.Probe {

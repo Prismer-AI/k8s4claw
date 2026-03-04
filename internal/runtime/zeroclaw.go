@@ -15,8 +15,21 @@ type ZeroClawAdapter struct{}
 var _ RuntimeAdapter = (*ZeroClawAdapter)(nil)
 
 func (a *ZeroClawAdapter) PodTemplate(claw *v1alpha1.Claw) *corev1.PodTemplateSpec {
-	// TODO: implement ZeroClaw pod template with IPC Bus co-process
-	return &corev1.PodTemplateSpec{}
+	return BuildPodTemplate(claw, a.runtimeSpec(claw))
+}
+
+func (a *ZeroClawAdapter) runtimeSpec(claw *v1alpha1.Claw) *RuntimeSpec {
+	return &RuntimeSpec{
+		Image:          "ghcr.io/prismer-ai/k8s4claw-zeroclaw:latest",
+		Command:        []string{"/usr/bin/claw-entrypoint"},
+		Ports:          []corev1.ContainerPort{{Name: "gateway", ContainerPort: 3000, Protocol: corev1.ProtocolTCP}},
+		Resources:      resources("50m", "32Mi", "200m", "128Mi"),
+		ConfigMode:     ConfigModePassthrough,
+		WorkspacePath:  "/workspace",
+		Env:            []corev1.EnvVar{{Name: "ZEROCLAW_MODE", Value: "gateway"}},
+		LivenessProbe:  a.HealthProbe(claw),
+		ReadinessProbe: a.ReadinessProbe(claw),
+	}
 }
 
 func (a *ZeroClawAdapter) HealthProbe(_ *v1alpha1.Claw) *corev1.Probe {

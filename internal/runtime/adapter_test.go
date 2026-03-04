@@ -200,6 +200,44 @@ func TestAdapter_PodTemplate(t *testing.T) {
 			if tmpl == nil {
 				t.Fatal("PodTemplate() returned nil")
 			}
+
+			// Verify 1 init container named "claw-init".
+			if got := len(tmpl.Spec.InitContainers); got != 1 {
+				t.Fatalf("InitContainers count = %d; want 1", got)
+			}
+			if tmpl.Spec.InitContainers[0].Name != "claw-init" {
+				t.Errorf("InitContainers[0].Name = %q; want %q", tmpl.Spec.InitContainers[0].Name, "claw-init")
+			}
+
+			// Verify 1 container named "runtime".
+			if got := len(tmpl.Spec.Containers); got != 1 {
+				t.Fatalf("Containers count = %d; want 1", got)
+			}
+			runtime := tmpl.Spec.Containers[0]
+			if runtime.Name != "runtime" {
+				t.Errorf("Containers[0].Name = %q; want %q", runtime.Name, "runtime")
+			}
+
+			// Verify runtime container has the correct port.
+			if len(runtime.Ports) == 0 {
+				t.Fatal("runtime container has no ports")
+			}
+			if got := runtime.Ports[0].ContainerPort; got != int32(tt.wantPort) {
+				t.Errorf("runtime port = %d; want %d", got, tt.wantPort)
+			}
+
+			// Verify at least 4 volumes (ipc-socket, wal-data, config-vol, tmp).
+			if got := len(tmpl.Spec.Volumes); got < 4 {
+				t.Errorf("Volumes count = %d; want >= 4", got)
+			}
+
+			// Verify LivenessProbe and ReadinessProbe are set.
+			if runtime.LivenessProbe == nil {
+				t.Error("runtime LivenessProbe is nil")
+			}
+			if runtime.ReadinessProbe == nil {
+				t.Error("runtime ReadinessProbe is nil")
+			}
 		})
 	}
 }

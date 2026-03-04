@@ -16,8 +16,21 @@ type PicoClawAdapter struct{}
 var _ RuntimeAdapter = (*PicoClawAdapter)(nil)
 
 func (a *PicoClawAdapter) PodTemplate(claw *v1alpha1.Claw) *corev1.PodTemplateSpec {
-	// TODO: implement PicoClaw pod template
-	return &corev1.PodTemplateSpec{}
+	return BuildPodTemplate(claw, a.runtimeSpec(claw))
+}
+
+func (a *PicoClawAdapter) runtimeSpec(claw *v1alpha1.Claw) *RuntimeSpec {
+	return &RuntimeSpec{
+		Image:          "ghcr.io/prismer-ai/k8s4claw-picoclaw:latest",
+		Command:        []string{"/usr/bin/claw-entrypoint"},
+		Ports:          []corev1.ContainerPort{{Name: "gateway", ContainerPort: 8080, Protocol: corev1.ProtocolTCP}},
+		Resources:      resources("25m", "16Mi", "100m", "64Mi"),
+		ConfigMode:     ConfigModePassthrough,
+		WorkspacePath:  "/workspace",
+		Env:            []corev1.EnvVar{{Name: "PICOCLAW_MODE", Value: "serverless"}},
+		LivenessProbe:  a.HealthProbe(claw),
+		ReadinessProbe: a.ReadinessProbe(claw),
+	}
 }
 
 func (a *PicoClawAdapter) HealthProbe(_ *v1alpha1.Claw) *corev1.Probe {

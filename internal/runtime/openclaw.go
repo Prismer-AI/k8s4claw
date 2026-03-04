@@ -15,8 +15,21 @@ type OpenClawAdapter struct{}
 var _ RuntimeAdapter = (*OpenClawAdapter)(nil)
 
 func (a *OpenClawAdapter) PodTemplate(claw *v1alpha1.Claw) *corev1.PodTemplateSpec {
-	// TODO: implement OpenClaw pod template with IPC Bus co-process
-	return &corev1.PodTemplateSpec{}
+	return BuildPodTemplate(claw, a.runtimeSpec(claw))
+}
+
+func (a *OpenClawAdapter) runtimeSpec(claw *v1alpha1.Claw) *RuntimeSpec {
+	return &RuntimeSpec{
+		Image:          "ghcr.io/prismer-ai/k8s4claw-openclaw:latest",
+		Command:        []string{"/usr/bin/claw-entrypoint"},
+		Ports:          []corev1.ContainerPort{{Name: "gateway", ContainerPort: 18900, Protocol: corev1.ProtocolTCP}},
+		Resources:      resources("500m", "1Gi", "2000m", "4Gi"),
+		ConfigMode:     ConfigModeDeepMerge,
+		WorkspacePath:  "/workspace",
+		Env:            []corev1.EnvVar{{Name: "OPENCLAW_MODE", Value: "gateway"}},
+		LivenessProbe:  a.HealthProbe(claw),
+		ReadinessProbe: a.ReadinessProbe(claw),
+	}
 }
 
 func (a *OpenClawAdapter) HealthProbe(_ *v1alpha1.Claw) *corev1.Probe {
