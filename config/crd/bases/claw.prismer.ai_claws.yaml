@@ -554,6 +554,23 @@ spec:
                     - enabled
                     type: object
                 type: object
+              selfConfigure:
+                description: SelfConfigure enables agent self-configuration.
+                properties:
+                  allowedActions:
+                    description: |-
+                      AllowedActions lists which action categories are permitted.
+                      Valid values: "skills", "config", "workspaceFiles", "envVars".
+                    items:
+                      type: string
+                    type: array
+                  enabled:
+                    description: Enabled allows the agent to create ClawSelfConfig
+                      resources.
+                    type: boolean
+                required:
+                - enabled
+                type: object
               serviceAccount:
                 description: ServiceAccount overrides the default restricted ServiceAccount.
                 properties:

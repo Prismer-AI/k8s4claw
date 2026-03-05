@@ -46,6 +46,21 @@ type ClawSpec struct {
 	// ServiceAccount overrides the default restricted ServiceAccount.
 	// +optional
 	ServiceAccount *ServiceAccountRef `json:"serviceAccount,omitempty"`
+
+	// SelfConfigure enables agent self-configuration.
+	// +optional
+	SelfConfigure *SelfConfigureSpec `json:"selfConfigure,omitempty"`
+}
+
+// SelfConfigureSpec controls agent self-configuration.
+type SelfConfigureSpec struct {
+	// Enabled allows the agent to create ClawSelfConfig resources.
+	Enabled bool `json:"enabled"`
+
+	// AllowedActions lists which action categories are permitted.
+	// Valid values: "skills", "config", "workspaceFiles", "envVars".
+	// +optional
+	AllowedActions []string `json:"allowedActions,omitempty"`
 }
 
 // ServiceAccountRef allows opting into a custom ServiceAccount for the Claw Pod.
