@@ -16,11 +16,16 @@ import (
 	clawv1alpha1 "github.com/Prismer-AI/k8s4claw/api/v1alpha1"
 )
 
+// isUserManagedSA returns true when the user has specified their own ServiceAccount name.
+func isUserManagedSA(claw *clawv1alpha1.Claw) bool {
+	return claw.Spec.ServiceAccount != nil && claw.Spec.ServiceAccount.Name != ""
+}
+
 // serviceAccountName returns the ServiceAccount name for the given Claw.
 // If spec.serviceAccount.name is set, the user-provided name is returned;
 // otherwise the SA is operator-managed and named after the Claw instance.
 func serviceAccountName(claw *clawv1alpha1.Claw) string {
-	if claw.Spec.ServiceAccount != nil && claw.Spec.ServiceAccount.Name != "" {
+	if isUserManagedSA(claw) {
 		return claw.Spec.ServiceAccount.Name
 	}
 	return claw.Name
@@ -30,7 +35,7 @@ func serviceAccountName(claw *clawv1alpha1.Claw) string {
 // for the given Claw. If spec.serviceAccount.name is set the function is a
 // no-op: the user is responsible for that SA.
 func (r *ClawReconciler) ensureServiceAccount(ctx context.Context, claw *clawv1alpha1.Claw) error {
-	if claw.Spec.ServiceAccount != nil && claw.Spec.ServiceAccount.Name != "" {
+	if isUserManagedSA(claw) {
 		return nil
 	}
 

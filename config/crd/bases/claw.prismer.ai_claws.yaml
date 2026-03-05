@@ -473,8 +473,6 @@ spec:
                   name:
                     description: Name of a user-managed ServiceAccount.
                     type: string
-                required:
-                - name
                 type: object
             required:
             - runtime

@@ -300,7 +300,7 @@ func (r *ClawReconciler) buildStatefulSet(ctx context.Context, claw *clawv1alpha
 	// Only force automountServiceAccountToken=false for operator-managed SAs;
 	// user-managed SAs may need the token mounted (e.g., for in-cluster API access).
 	podTemplate.Spec.ServiceAccountName = serviceAccountName(claw)
-	if claw.Spec.ServiceAccount == nil || claw.Spec.ServiceAccount.Name == "" {
+	if !isUserManagedSA(claw) {
 		podTemplate.Spec.AutomountServiceAccountToken = ptr.To(false)
 	}
 

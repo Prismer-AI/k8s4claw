@@ -39,7 +39,8 @@ type ClawSpec struct {
 // ServiceAccountRef allows opting into a custom ServiceAccount for the Claw Pod.
 type ServiceAccountRef struct {
 	// Name of a user-managed ServiceAccount.
-	Name string `json:"name"`
+	// +optional
+	Name string `json:"name,omitempty"`
 
 	// Annotations to apply to the ServiceAccount (e.g., for IRSA or Workload Identity).
 	// +optional
