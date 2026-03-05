@@ -2,6 +2,8 @@ package ipcbus
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"net"
 	"os"
 	"path/filepath"
@@ -251,5 +253,110 @@ func TestServer_HeartbeatACK(t *testing.T) {
 	}
 	if ack.CorrelationID != hbMsg.ID {
 		t.Fatalf("heartbeat ACK correlationID mismatch: got %s, want %s", ack.CorrelationID, hbMsg.ID)
+	}
+}
+
+func TestIntegration_SidecarToRouterWithWALAndDLQ(t *testing.T) {
+	tmpDir := t.TempDir()
+	socketPath := filepath.Join(tmpDir, "integration.sock")
+	walDir := filepath.Join(tmpDir, "wal")
+	dlqPath := filepath.Join(tmpDir, "dlq.db")
+
+	wal, err := NewWAL(walDir)
+	if err != nil {
+		t.Fatalf("failed to create WAL: %v", err)
+	}
+	defer wal.Close()
+
+	dlq, err := NewDLQ(dlqPath, 100, 24*time.Hour)
+	if err != nil {
+		t.Fatalf("failed to create DLQ: %v", err)
+	}
+	defer dlq.Close()
+
+	router := NewRouter(RouterConfig{
+		WAL:           wal,
+		DLQ:           dlq,
+		Logger:        logr.Discard(),
+		BufferSize:    10,
+		HighWatermark: 0.8,
+		LowWatermark:  0.3,
+	})
+
+	srv := NewServer(socketPath, router, logr.Discard())
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	errCh := make(chan error, 1)
+	go func() {
+		errCh <- srv.Start(ctx)
+	}()
+
+	// Connect sidecar via UDS.
+	var conn net.Conn
+	deadline := time.Now().Add(5 * time.Second)
+	for time.Now().Before(deadline) {
+		conn, err = net.Dial("unix", socketPath)
+		if err == nil {
+			break
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	if err != nil {
+		t.Fatalf("failed to connect to UDS server: %v", err)
+	}
+	defer conn.Close()
+
+	// Register on "test-ch".
+	regMsg := NewMessage(TypeRegister, "test-ch", nil)
+	if err := WriteMessage(conn, regMsg); err != nil {
+		t.Fatalf("failed to write registration message: %v", err)
+	}
+
+	// Read ACK.
+	ack, err := ReadMessage(conn)
+	if err != nil {
+		t.Fatalf("failed to read ACK: %v", err)
+	}
+	if ack.Type != TypeAck {
+		t.Fatalf("expected ACK, got %s", ack.Type)
+	}
+
+	// Send 5 data messages with JSON payload {"n":0} through {"n":4}.
+	for i := range 5 {
+		payload, err := json.Marshal(map[string]int{"n": i})
+		if err != nil {
+			t.Fatalf("failed to marshal payload: %v", err)
+		}
+		dataMsg := NewMessage(TypeMessage, "test-ch", payload)
+		if err := WriteMessage(conn, dataMsg); err != nil {
+			t.Fatalf("failed to write data message %d: %v", i, err)
+		}
+	}
+
+	// Wait for processing.
+	time.Sleep(200 * time.Millisecond)
+
+	// Assert WAL has 0 pending entries (all completed since no bridge to fail).
+	pending := wal.PendingEntries()
+	if got := len(pending); got != 0 {
+		for _, e := range pending {
+			fmt.Printf("  pending entry: id=%s channel=%s state=%s\n", e.ID, e.Channel, e.State)
+		}
+		t.Fatalf("expected 0 pending WAL entries, got %d", got)
+	}
+
+	// Close client connection so the server's read loop exits, then cancel.
+	conn.Close()
+	cancel()
+
+	select {
+	case srvErr := <-errCh:
+		if srvErr != nil {
+			t.Fatalf("server returned error: %v", srvErr)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("server did not shut down in time")
 	}
 }
