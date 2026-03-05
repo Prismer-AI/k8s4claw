@@ -14,6 +14,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	apimachineryruntime "k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/utils/ptr"
@@ -3786,6 +3787,54 @@ func TestPDBEnabled(t *testing.T) {
 				t.Errorf("pdbEnabled() = %v, want %v", got, tt.want)
 			}
 		})
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Unit tests: PVC ownerReferences
+// ---------------------------------------------------------------------------
+
+func TestHasOwnerReference(t *testing.T) {
+	clawUID := types.UID("claw-uid-123")
+	claw := &clawv1alpha1.Claw{
+		ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "default", UID: clawUID},
+	}
+
+	pvcWithRef := &corev1.PersistentVolumeClaim{
+		ObjectMeta: metav1.ObjectMeta{
+			OwnerReferences: []metav1.OwnerReference{
+				{UID: clawUID, Name: "test"},
+			},
+		},
+	}
+	if !hasOwnerReference(pvcWithRef, claw) {
+		t.Error("expected hasOwnerReference to return true")
+	}
+
+	pvcWithoutRef := &corev1.PersistentVolumeClaim{
+		ObjectMeta: metav1.ObjectMeta{},
+	}
+	if hasOwnerReference(pvcWithoutRef, claw) {
+		t.Error("expected hasOwnerReference to return false")
+	}
+}
+
+func TestRemoveOwnerRef(t *testing.T) {
+	uid := types.UID("claw-uid-123")
+	otherUID := types.UID("other-uid-456")
+	gvk := schema.GroupVersionKind{Group: "claw.prismer.ai", Version: "v1alpha1", Kind: "Claw"}
+
+	refs := []metav1.OwnerReference{
+		{UID: uid, Name: "test-claw"},
+		{UID: otherUID, Name: "other-owner"},
+	}
+
+	result := removeOwnerRef(refs, uid, gvk)
+	if len(result) != 1 {
+		t.Fatalf("expected 1 remaining ref, got %d", len(result))
+	}
+	if result[0].UID != otherUID {
+		t.Errorf("expected remaining ref to be other-uid-456, got %s", result[0].UID)
 	}
 }
 

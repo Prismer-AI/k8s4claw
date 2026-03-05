@@ -112,6 +112,11 @@ func (r *ClawReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 		return ctrl.Result{}, fmt.Errorf("failed to ensure StatefulSet: %w", err)
 	}
 
+	// Ensure PVCs created by StatefulSet have ownerReferences to the Claw CR.
+	if err := r.ensurePVCOwnerReferences(ctx, &claw); err != nil {
+		return ctrl.Result{}, fmt.Errorf("failed to ensure PVC ownerReferences: %w", err)
+	}
+
 	// Re-fetch the claw to get latest version after StatefulSet changes.
 	if err := r.Get(ctx, req.NamespacedName, &claw); err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
@@ -144,7 +149,10 @@ func (r *ClawReconciler) handleDeletion(ctx context.Context, claw *clawv1alpha1.
 			return ctrl.Result{}, fmt.Errorf("failed to delete PVCs: %w", err)
 		}
 	case "Retain":
-		logger.Info("retaining PVCs per reclaim policy", "name", claw.Name)
+		logger.Info("retaining PVCs per reclaim policy, removing ownerReferences", "name", claw.Name)
+		if err := r.removePVCOwnerReferences(ctx, claw); err != nil {
+			return ctrl.Result{}, fmt.Errorf("failed to remove PVC ownerReferences: %w", err)
+		}
 	case "Archive":
 		logger.Info("Archive reclaim policy not yet implemented, retaining PVCs", "name", claw.Name)
 	}
