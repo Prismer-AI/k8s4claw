@@ -23,10 +23,32 @@ k8s4claw provides unified lifecycle management for multiple AI agent runtimes:
 - **CRD-based management** — Declarative `Claw` and `ClawChannel` resources
 - **Runtime adapters** — Extensible interface for any agent runtime
 - **Channel sidecars** — Pluggable communication (Slack, Telegram, Discord, custom)
-- **IPC Bus** — Unified streaming protocol with backpressure
+- **IPC Bus** — Native sidecar with WAL-backed delivery, backpressure, and DLQ
 - **Persistence** — PVC lifecycle, CSI snapshots, S3 archival
 - **Observability** — Prometheus metrics, status conditions, K8s Events
 - **Go SDK** — Simple client for infrastructure integration
+
+## Architecture
+
+```text
+┌─────────────────── Claw Pod ───────────────────┐
+│                                                 │
+│  ┌──────────┐   UDS    ┌──────────┐   Bridge   │
+│  │ Channel  │◄────────►│ IPC Bus  │◄──────────►│ Runtime
+│  │ Sidecar  │ bus.sock │ (sidecar)│  WS/UDS/  │ Container
+│  └──────────┘          │          │  SSE/TCP   │
+│                        │ WAL+DLQ  │            │
+│                        └──────────┘            │
+└─────────────────────────────────────────────────┘
+```
+
+The **IPC Bus** is a standalone Go binary deployed as a Kubernetes native sidecar (init container with `restartPolicy: Always`). It routes JSON messages between channel sidecars and the AI runtime via:
+
+- **Unix Domain Socket** (`/var/run/claw/bus.sock`) — sidecar-facing
+- **RuntimeBridge** — runtime-facing (WebSocket for OpenClaw, protocol-specific for others)
+- **WAL** — append-only write-ahead log on emptyDir for at-least-once delivery
+- **DLQ** — BoltDB dead letter queue for messages exceeding retry limits
+- **Backpressure** — ring buffer with high/low watermark flow control
 
 ## Quick Start
 
@@ -61,18 +83,26 @@ claw, err := client.Create(ctx, &sdk.ClawSpec{
 
 ## Architecture
 
-See [docs/plans/2026-03-04-k8s4claw-design.md](docs/plans/2026-03-04-k8s4claw-design.md) for the full design document.
+Design documents:
+
+- [Operator Core Design](docs/plans/2026-03-04-k8s4claw-design.md)
+- [IPC Bus + Resilience Design](docs/plans/2026-03-05-phase4-ipcbus-resilience-design.md)
 
 ## Development
 
 ```bash
-make build          # Build operator
-make test           # Run tests
+make build          # Build operator binary
+make build-ipcbus   # Build IPC Bus binary
+make test           # Run tests (requires setup-envtest for controller tests)
 make lint           # Lint
+make vet            # Run go vet
+make fmt            # Run gofmt + goimports
 make manifests      # Generate CRD YAML
 make generate       # Generate deepcopy
 make docker-build   # Build container image
 ```
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the full development guide.
 
 ## License
 

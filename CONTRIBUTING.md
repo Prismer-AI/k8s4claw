@@ -6,7 +6,7 @@ We welcome contributions! This document explains how to get involved.
 
 ### Prerequisites
 
-- Go 1.23+
+- Go 1.25+
 - Docker
 - kubectl + access to a Kubernetes cluster (kind/minikube for local dev)
 - [controller-gen](https://book.kubebuilder.io/reference/controller-gen) (for CRD generation)
@@ -78,6 +78,36 @@ Implement the `RuntimeAdapter` interface in `internal/runtime/`:
 3. Register in the adapter registry
 4. Add a sample CR in `config/samples/`
 5. Add tests
+
+## IPC Bus Development
+
+The IPC Bus is a standalone binary in `cmd/ipcbus/` with core logic in `internal/ipcbus/`.
+
+```bash
+make build-ipcbus   # Build IPC Bus binary
+go test -race ./internal/ipcbus/...  # Run IPC Bus tests
+```
+
+### Key packages
+
+| Package                              | Purpose                             |
+| ------------------------------------ | ----------------------------------- |
+| `internal/ipcbus/message.go`         | Message types and envelope (UUIDv7) |
+| `internal/ipcbus/framing.go`         | Length-prefix wire protocol         |
+| `internal/ipcbus/ringbuffer.go`      | Backpressure ring buffer            |
+| `internal/ipcbus/wal.go`             | Write-ahead log (JSON-lines)        |
+| `internal/ipcbus/dlq.go`             | Dead letter queue (BoltDB)          |
+| `internal/ipcbus/bridge*.go`         | RuntimeBridge adapters              |
+| `internal/ipcbus/server.go`          | UDS server + connection handling    |
+| `internal/ipcbus/router.go`          | Message routing with retry logic    |
+| `internal/controller/claw_ipcbus.go` | Operator sidecar injection          |
+
+### Adding a new RuntimeBridge
+
+1. Create `internal/ipcbus/bridge_yourprotocol.go` implementing `RuntimeBridge`
+2. Add a `RuntimeType` constant in `bridge.go`
+3. Register in the `NewBridge` factory
+4. Add tests
 
 ## Adding a New Channel
 
