@@ -1017,6 +1017,23 @@ func TestInitContainerResources(t *testing.T) {
 // TestConfigMergeMode constants
 // ---------------------------------------------------------------------------
 
+func TestBuildInitContainer_NPMIgnoreScripts(t *testing.T) {
+	t.Parallel()
+
+	claw := minimalClaw()
+	spec := minimalSpec()
+	ic := buildInitContainer(claw, spec)
+
+	envMap := envToMap(ic.Env)
+	val, ok := envMap["NPM_CONFIG_IGNORE_SCRIPTS"]
+	if !ok {
+		t.Fatal("missing NPM_CONFIG_IGNORE_SCRIPTS env var in init container")
+	}
+	if val != "true" {
+		t.Errorf("NPM_CONFIG_IGNORE_SCRIPTS = %q; want %q", val, "true")
+	}
+}
+
 func TestConfigMergeMode(t *testing.T) {
 	t.Parallel()
 
