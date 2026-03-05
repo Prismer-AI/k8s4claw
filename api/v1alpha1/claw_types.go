@@ -31,6 +31,18 @@ type ClawSpec struct {
 	// +optional
 	Observability *ObservabilitySpec `json:"observability,omitempty"`
 
+	// Security configures network policies.
+	// +optional
+	Security *SecuritySpec `json:"security,omitempty"`
+
+	// Ingress configures external HTTP access.
+	// +optional
+	Ingress *IngressSpec `json:"ingress,omitempty"`
+
+	// Availability configures PDB and other availability settings.
+	// +optional
+	Availability *AvailabilitySpec `json:"availability,omitempty"`
+
 	// ServiceAccount overrides the default restricted ServiceAccount.
 	// +optional
 	ServiceAccount *ServiceAccountRef `json:"serviceAccount,omitempty"`

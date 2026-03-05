@@ -275,6 +275,86 @@ type ObservabilitySpec struct {
 	Tracing bool `json:"tracing,omitempty"`
 }
 
+// SecuritySpec configures network security policies.
+type SecuritySpec struct {
+	// NetworkPolicy controls per-instance NetworkPolicy creation.
+	// +optional
+	NetworkPolicy *NetworkPolicySpec `json:"networkPolicy,omitempty"`
+}
+
+// NetworkPolicySpec configures the auto-generated NetworkPolicy.
+type NetworkPolicySpec struct {
+	// Enabled controls whether a NetworkPolicy is created. Default: true.
+	// +kubebuilder:default=true
+	Enabled bool `json:"enabled"`
+
+	// AllowedEgressCIDRs are additional CIDR blocks allowed for egress.
+	// +optional
+	AllowedEgressCIDRs []string `json:"allowedEgressCIDRs,omitempty"`
+
+	// AllowedIngressNamespaces are namespaces allowed to access this Claw.
+	// +optional
+	AllowedIngressNamespaces []string `json:"allowedIngressNamespaces,omitempty"`
+}
+
+// IngressSpec configures external HTTP access.
+type IngressSpec struct {
+	// Enabled controls whether an Ingress is created.
+	Enabled bool `json:"enabled"`
+
+	// Host is the FQDN for the Ingress rule.
+	Host string `json:"host"`
+
+	// ClassName is the IngressClass name (e.g., "nginx").
+	// +optional
+	ClassName string `json:"className,omitempty"`
+
+	// TLS configures TLS termination.
+	// +optional
+	TLS *IngressTLS `json:"tls,omitempty"`
+
+	// BasicAuth configures optional HTTP Basic Authentication.
+	// +optional
+	BasicAuth *BasicAuthSpec `json:"basicAuth,omitempty"`
+
+	// Annotations are additional annotations to add to the Ingress.
+	// +optional
+	Annotations map[string]string `json:"annotations,omitempty"`
+}
+
+// IngressTLS configures TLS for an Ingress.
+type IngressTLS struct {
+	// SecretName is the TLS Secret name.
+	SecretName string `json:"secretName"`
+}
+
+// BasicAuthSpec configures HTTP Basic Auth for Ingress.
+type BasicAuthSpec struct {
+	// Enabled controls whether basic auth is active.
+	Enabled bool `json:"enabled"`
+
+	// SecretName references a Secret containing htpasswd data.
+	SecretName string `json:"secretName"`
+}
+
+// AvailabilitySpec configures availability settings.
+type AvailabilitySpec struct {
+	// PDB configures PodDisruptionBudget.
+	// +optional
+	PDB *PDBSpec `json:"pdb,omitempty"`
+}
+
+// PDBSpec configures a PodDisruptionBudget.
+type PDBSpec struct {
+	// Enabled controls whether a PDB is created. Default: true.
+	// +kubebuilder:default=true
+	Enabled bool `json:"enabled"`
+
+	// MinAvailable is the minimum number of available pods. Default: 1.
+	// +kubebuilder:default=1
+	MinAvailable int `json:"minAvailable,omitempty"`
+}
+
 // BackpressureSpec configures per-channel flow control.
 type BackpressureSpec struct {
 	// BufferSize is the ring buffer capacity.

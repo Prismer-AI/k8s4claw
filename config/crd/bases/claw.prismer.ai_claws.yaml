@@ -49,6 +49,26 @@ spec:
           spec:
             description: ClawSpec defines the desired state of a Claw agent instance.
             properties:
+              availability:
+                description: Availability configures PDB and other availability settings.
+                properties:
+                  pdb:
+                    description: PDB configures PodDisruptionBudget.
+                    properties:
+                      enabled:
+                        default: true
+                        description: 'Enabled controls whether a PDB is created. Default:
+                          true.'
+                        type: boolean
+                      minAvailable:
+                        default: 1
+                        description: 'MinAvailable is the minimum number of available
+                          pods. Default: 1.'
+                        type: integer
+                    required:
+                    - enabled
+                    type: object
+                type: object
               channels:
                 description: Channels references ClawChannel resources for external
                   communication.
@@ -157,6 +177,51 @@ spec:
                         type: string
                     type: object
                     x-kubernetes-map-type: atomic
+                type: object
+              ingress:
+                description: Ingress configures external HTTP access.
+                properties:
+                  annotations:
+                    additionalProperties:
+                      type: string
+                    description: Annotations are additional annotations to add to
+                      the Ingress.
+                    type: object
+                  basicAuth:
+                    description: BasicAuth configures optional HTTP Basic Authentication.
+                    properties:
+                      enabled:
+                        description: Enabled controls whether basic auth is active.
+                        type: boolean
+                      secretName:
+                        description: SecretName references a Secret containing htpasswd
+                          data.
+                        type: string
+                    required:
+                    - enabled
+                    - secretName
+                    type: object
+                  className:
+                    description: ClassName is the IngressClass name (e.g., "nginx").
+                    type: string
+                  enabled:
+                    description: Enabled controls whether an Ingress is created.
+                    type: boolean
+                  host:
+                    description: Host is the FQDN for the Ingress rule.
+                    type: string
+                  tls:
+                    description: TLS configures TLS termination.
+                    properties:
+                      secretName:
+                        description: SecretName is the TLS Secret name.
+                        type: string
+                    required:
+                    - secretName
+                    type: object
+                required:
+                - enabled
+                - host
                 type: object
               observability:
                 description: Observability configures monitoring.
@@ -461,6 +526,34 @@ spec:
                 - picoclaw
                 - custom
                 type: string
+              security:
+                description: Security configures network policies.
+                properties:
+                  networkPolicy:
+                    description: NetworkPolicy controls per-instance NetworkPolicy
+                      creation.
+                    properties:
+                      allowedEgressCIDRs:
+                        description: AllowedEgressCIDRs are additional CIDR blocks
+                          allowed for egress.
+                        items:
+                          type: string
+                        type: array
+                      allowedIngressNamespaces:
+                        description: AllowedIngressNamespaces are namespaces allowed
+                          to access this Claw.
+                        items:
+                          type: string
+                        type: array
+                      enabled:
+                        default: true
+                        description: 'Enabled controls whether a NetworkPolicy is
+                          created. Default: true.'
+                        type: boolean
+                    required:
+                    - enabled
+                    type: object
+                type: object
               serviceAccount:
                 description: ServiceAccount overrides the default restricted ServiceAccount.
                 properties:
