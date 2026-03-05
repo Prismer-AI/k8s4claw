@@ -1,0 +1,90 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: k8s4claw-alerts
+  labels:
+    app.kubernetes.io/name: k8s4claw
+    app.kubernetes.io/component: operator
+spec:
+  groups:
+    - name: k8s4claw.rules
+      rules:
+        - alert: ClawReconcileErrors
+          expr: rate(claw_reconcile_total{result="error"}[5m]) > 0
+          for: 5m
+          labels:
+            severity: warning
+            service: k8s4claw
+          annotations:
+            summary: "Claw reconcile errors detected"
+            runbook_url: "https://docs.prismer.ai/runbooks/ClawReconcileErrors"
+
+        - alert: ClawInstanceDegraded
+          expr: claw_instance_phase{phase=~"Failed|Degraded"} == 1
+          for: 2m
+          labels:
+            severity: critical
+            service: k8s4claw
+          annotations:
+            summary: "Claw instance {{ $labels.instance }} in {{ $labels.phase }} state"
+            runbook_url: "https://docs.prismer.ai/runbooks/ClawInstanceDegraded"
+
+        - alert: ClawSlowReconciliation
+          expr: histogram_quantile(0.99, rate(claw_reconcile_duration_seconds_bucket[10m])) > 30
+          for: 10m
+          labels:
+            severity: warning
+            service: k8s4claw
+          annotations:
+            summary: "Claw reconcile P99 latency above 30s"
+            runbook_url: "https://docs.prismer.ai/runbooks/ClawSlowReconciliation"
+
+        - alert: ClawPodCrashLooping
+          expr: increase(kube_pod_container_status_restarts_total{container=~"claw-.*"}[10m]) > 2
+          for: 0m
+          labels:
+            severity: critical
+            service: k8s4claw
+          annotations:
+            summary: "Claw pod {{ $labels.pod }} crash looping"
+            runbook_url: "https://docs.prismer.ai/runbooks/ClawPodCrashLooping"
+
+        - alert: ClawPodOOMKilled
+          expr: kube_pod_container_status_last_terminated_reason{reason="OOMKilled", container=~"claw-.*"} == 1
+          for: 0m
+          labels:
+            severity: warning
+            service: k8s4claw
+          annotations:
+            summary: "Claw pod {{ $labels.pod }} OOM killed"
+            runbook_url: "https://docs.prismer.ai/runbooks/ClawPodOOMKilled"
+
+        - alert: ClawPVCNearlyFull
+          expr: kubelet_volume_stats_used_bytes{persistentvolumeclaim=~"claw-.*"} / kubelet_volume_stats_capacity_bytes{persistentvolumeclaim=~"claw-.*"} > 0.85
+          for: 5m
+          labels:
+            severity: warning
+            service: k8s4claw
+          annotations:
+            summary: "Claw PVC {{ $labels.persistentvolumeclaim }} above 85%"
+            runbook_url: "https://docs.prismer.ai/runbooks/ClawPVCNearlyFull"
+
+        - alert: ClawDLQBacklog
+          expr: claw_ipcbus_dlq_size > 100
+          for: 5m
+          labels:
+            severity: warning
+            service: k8s4claw
+          annotations:
+            summary: "IPC Bus DLQ has {{ $value }} pending entries"
+            runbook_url: "https://docs.prismer.ai/runbooks/ClawDLQBacklog"
+
+        - alert: ClawChannelDisconnected
+          expr: claw_ipcbus_sidecar_connections == 0 and claw_ipcbus_bridge_connected == 1
+          for: 5m
+          labels:
+            severity: warning
+            service: k8s4claw
+          annotations:
+            summary: "No channel sidecars connected to IPC Bus"
+            runbook_url: "https://docs.prismer.ai/runbooks/ClawChannelDisconnected"

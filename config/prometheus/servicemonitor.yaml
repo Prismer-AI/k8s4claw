@@ -1,0 +1,16 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: k8s4claw-operator
+  labels:
+    app.kubernetes.io/name: k8s4claw
+    app.kubernetes.io/component: operator
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: k8s4claw
+      app.kubernetes.io/component: operator
+  endpoints:
+    - port: metrics
+      interval: 30s
+      path: /metrics
