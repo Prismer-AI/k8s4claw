@@ -7,6 +7,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
+	policyv1 "k8s.io/api/policy/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	apimeta "k8s.io/apimachinery/pkg/api/meta"
@@ -42,6 +43,7 @@ type ClawReconciler struct {
 // +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=roles;rolebindings,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=snapshot.storage.k8s.io,resources=volumesnapshots,verbs=get;list;watch;create;delete
 // +kubebuilder:rbac:groups=networking.k8s.io,resources=networkpolicies;ingresses,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=policy,resources=poddisruptionbudgets,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=apps,resources=statefulsets,verbs=get;list;watch;create;update;patch;delete
 
 func (r *ClawReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
@@ -98,6 +100,11 @@ func (r *ClawReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 	// Ensure Ingress for external HTTP access.
 	if err := r.ensureIngress(ctx, &claw, gatewayPort); err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to ensure Ingress: %w", err)
+	}
+
+	// Ensure PodDisruptionBudget (default: enabled with minAvailable=1).
+	if err := r.ensurePDB(ctx, &claw); err != nil {
+		return ctrl.Result{}, fmt.Errorf("failed to ensure PDB: %w", err)
 	}
 
 	// Ensure StatefulSet exists and is up to date.
@@ -359,6 +366,7 @@ func (r *ClawReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Owns(&rbacv1.RoleBinding{}).
 		Owns(&networkingv1.NetworkPolicy{}).
 		Owns(&networkingv1.Ingress{}).
+		Owns(&policyv1.PodDisruptionBudget{}).
 		Watches(&clawv1alpha1.ClawChannel{}, handler.EnqueueRequestsFromMapFunc(r.findClawsForChannel)).
 		Complete(r)
 }

@@ -23,6 +23,11 @@ rules:
     resources: [networkpolicies, ingresses]
     verbs: [get, list, watch, create, update, patch, delete]
 
+  # Policy (PodDisruptionBudgets)
+  - apiGroups: ["policy"]
+    resources: [poddisruptionbudgets]
+    verbs: [get, list, watch, create, update, patch, delete]
+
   # RBAC (per-instance Role + RoleBinding for selfConfigure)
   - apiGroups: ["rbac.authorization.k8s.io"]
     resources: [roles, rolebindings]

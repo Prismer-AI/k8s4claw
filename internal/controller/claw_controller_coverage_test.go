@@ -3692,6 +3692,103 @@ func TestEnsureIngress_NoOp(t *testing.T) {
 	}
 }
 
+// ---------------------------------------------------------------------------
+// Unit tests: buildPDB
+// ---------------------------------------------------------------------------
+
+func TestBuildPDB_Default(t *testing.T) {
+	claw := &clawv1alpha1.Claw{
+		ObjectMeta: metav1.ObjectMeta{Name: "my-agent", Namespace: "prod"},
+		Spec:       clawv1alpha1.ClawSpec{Runtime: clawv1alpha1.RuntimeOpenClaw},
+	}
+	pdb := buildPDB(claw)
+
+	if pdb.Name != "my-agent" {
+		t.Errorf("expected name my-agent, got %s", pdb.Name)
+	}
+	if pdb.Namespace != "prod" {
+		t.Errorf("expected namespace prod, got %s", pdb.Namespace)
+	}
+	if pdb.Spec.MinAvailable.IntValue() != 1 {
+		t.Errorf("expected minAvailable=1, got %d", pdb.Spec.MinAvailable.IntValue())
+	}
+	if pdb.Spec.Selector.MatchLabels["claw.prismer.ai/instance"] != "my-agent" {
+		t.Error("expected selector with claw.prismer.ai/instance label")
+	}
+}
+
+func TestBuildPDB_CustomMinAvailable(t *testing.T) {
+	claw := &clawv1alpha1.Claw{
+		ObjectMeta: metav1.ObjectMeta{Name: "my-agent", Namespace: "prod"},
+		Spec: clawv1alpha1.ClawSpec{
+			Runtime: clawv1alpha1.RuntimeOpenClaw,
+			Availability: &clawv1alpha1.AvailabilitySpec{
+				PDB: &clawv1alpha1.PDBSpec{
+					Enabled:      true,
+					MinAvailable: 3,
+				},
+			},
+		},
+	}
+	pdb := buildPDB(claw)
+
+	if pdb.Spec.MinAvailable.IntValue() != 3 {
+		t.Errorf("expected minAvailable=3, got %d", pdb.Spec.MinAvailable.IntValue())
+	}
+}
+
+func TestPDBEnabled(t *testing.T) {
+	tests := []struct {
+		name string
+		claw *clawv1alpha1.Claw
+		want bool
+	}{
+		{
+			name: "nil availability defaults to enabled",
+			claw: &clawv1alpha1.Claw{},
+			want: true,
+		},
+		{
+			name: "nil pdb defaults to enabled",
+			claw: &clawv1alpha1.Claw{
+				Spec: clawv1alpha1.ClawSpec{
+					Availability: &clawv1alpha1.AvailabilitySpec{},
+				},
+			},
+			want: true,
+		},
+		{
+			name: "explicitly disabled",
+			claw: &clawv1alpha1.Claw{
+				Spec: clawv1alpha1.ClawSpec{
+					Availability: &clawv1alpha1.AvailabilitySpec{
+						PDB: &clawv1alpha1.PDBSpec{Enabled: false},
+					},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "explicitly enabled",
+			claw: &clawv1alpha1.Claw{
+				Spec: clawv1alpha1.ClawSpec{
+					Availability: &clawv1alpha1.AvailabilitySpec{
+						PDB: &clawv1alpha1.PDBSpec{Enabled: true},
+					},
+				},
+			},
+			want: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := pdbEnabled(tt.claw); got != tt.want {
+				t.Errorf("pdbEnabled() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
 func containsSubstring(s, substr string) bool {
 	return len(s) >= len(substr) && (s == substr || len(s) > 0 && containsHelper(s, substr))
 }
