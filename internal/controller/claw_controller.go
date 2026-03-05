@@ -347,6 +347,9 @@ func (r *ClawReconciler) buildStatefulSet(ctx context.Context, claw *clawv1alpha
 		}
 	}
 
+	// Inject output archiver sidecar if configured.
+	injectArchiverIfNeeded(claw, podTemplate)
+
 	// Inject credentials into the pod template.
 	if claw.Spec.Credentials != nil {
 		if err := r.injectCredentials(ctx, claw, podTemplate); err != nil {

@@ -3876,6 +3876,149 @@ func TestBuildVolumeSnapshot_NoClass(t *testing.T) {
 	}
 }
 
+// ---------------------------------------------------------------------------
+// Unit tests: archiver sidecar injection
+// ---------------------------------------------------------------------------
+
+func TestShouldInjectArchiver(t *testing.T) {
+	tests := []struct {
+		name string
+		claw *clawv1alpha1.Claw
+		want bool
+	}{
+		{
+			name: "nil persistence",
+			claw: &clawv1alpha1.Claw{},
+			want: false,
+		},
+		{
+			name: "no output",
+			claw: &clawv1alpha1.Claw{
+				Spec: clawv1alpha1.ClawSpec{
+					Persistence: &clawv1alpha1.PersistenceSpec{},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "archive disabled",
+			claw: &clawv1alpha1.Claw{
+				Spec: clawv1alpha1.ClawSpec{
+					Persistence: &clawv1alpha1.PersistenceSpec{
+						Output: &clawv1alpha1.OutputVolumeSpec{
+							VolumeSpec: clawv1alpha1.VolumeSpec{Enabled: true, Size: "1Gi", MountPath: "/output"},
+							Archive: &clawv1alpha1.ArchiveSpec{Enabled: false},
+						},
+					},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "archive enabled",
+			claw: &clawv1alpha1.Claw{
+				Spec: clawv1alpha1.ClawSpec{
+					Persistence: &clawv1alpha1.PersistenceSpec{
+						Output: &clawv1alpha1.OutputVolumeSpec{
+							VolumeSpec: clawv1alpha1.VolumeSpec{Enabled: true, Size: "1Gi", MountPath: "/output"},
+							Archive: &clawv1alpha1.ArchiveSpec{
+								Enabled: true,
+								Destination: clawv1alpha1.ArchiveDestination{
+									Type:   "s3",
+									Bucket: "my-bucket",
+								},
+								Trigger: clawv1alpha1.ArchiveTrigger{Schedule: "0 * * * *"},
+							},
+						},
+					},
+				},
+			},
+			want: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := shouldInjectArchiver(tt.claw); got != tt.want {
+				t.Errorf("shouldInjectArchiver() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestInjectArchiverSidecar(t *testing.T) {
+	claw := &clawv1alpha1.Claw{
+		ObjectMeta: metav1.ObjectMeta{Name: "my-agent", Namespace: "prod"},
+		Spec: clawv1alpha1.ClawSpec{
+			Persistence: &clawv1alpha1.PersistenceSpec{
+				Output: &clawv1alpha1.OutputVolumeSpec{
+					VolumeSpec: clawv1alpha1.VolumeSpec{Enabled: true, Size: "5Gi", MountPath: "/data/output"},
+					Archive: &clawv1alpha1.ArchiveSpec{
+						Enabled: true,
+						Destination: clawv1alpha1.ArchiveDestination{
+							Type:   "s3",
+							Bucket: "archive-bucket",
+							Prefix: "claws/",
+							SecretRef: corev1.LocalObjectReference{Name: "s3-creds"},
+						},
+						Trigger: clawv1alpha1.ArchiveTrigger{
+							Schedule: "0 */6 * * *",
+							Inotify:  true,
+						},
+						Lifecycle: &clawv1alpha1.ArchiveLifecycle{
+							LocalRetention: "7d",
+							Compress:       true,
+						},
+					},
+				},
+			},
+		},
+	}
+
+	podTemplate := &corev1.PodTemplateSpec{}
+	injectArchiverSidecar(claw, podTemplate)
+
+	if len(podTemplate.Spec.InitContainers) != 1 {
+		t.Fatalf("expected 1 init container, got %d", len(podTemplate.Spec.InitContainers))
+	}
+
+	sidecar := podTemplate.Spec.InitContainers[0]
+	if sidecar.Name != "archive-sidecar" {
+		t.Errorf("expected name archive-sidecar, got %s", sidecar.Name)
+	}
+	if sidecar.RestartPolicy == nil || *sidecar.RestartPolicy != corev1.ContainerRestartPolicyAlways {
+		t.Error("expected native sidecar restartPolicy=Always")
+	}
+
+	// Check volume mount.
+	if len(sidecar.VolumeMounts) != 1 || sidecar.VolumeMounts[0].MountPath != "/data/output" {
+		t.Error("expected output volume mounted at /data/output")
+	}
+
+	// Check args contain expected flags.
+	argsStr := fmt.Sprintf("%v", sidecar.Args)
+	if !containsSubstring(argsStr, "--inotify") {
+		t.Error("expected --inotify in args")
+	}
+	if !containsSubstring(argsStr, "--compress") {
+		t.Error("expected --compress in args")
+	}
+	if !containsSubstring(argsStr, "--local-retention") {
+		t.Error("expected --local-retention in args")
+	}
+}
+
+func TestInjectArchiverIfNeeded_NoOp(t *testing.T) {
+	claw := &clawv1alpha1.Claw{
+		ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "default"},
+	}
+	podTemplate := &corev1.PodTemplateSpec{}
+	injectArchiverIfNeeded(claw, podTemplate)
+
+	if len(podTemplate.Spec.InitContainers) != 0 {
+		t.Error("expected no init containers when archiver not configured")
+	}
+}
+
 func containsSubstring(s, substr string) bool {
 	return len(s) >= len(substr) && (s == substr || len(s) > 0 && containsHelper(s, substr))
 }
