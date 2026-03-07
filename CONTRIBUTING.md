@@ -102,6 +102,16 @@ go test -race ./internal/ipcbus/...  # Run IPC Bus tests
 | `internal/ipcbus/router.go`          | Message routing with retry logic    |
 | `internal/controller/claw_ipcbus.go` | Operator sidecar injection          |
 
+### Auto-Update Controller
+
+The auto-update controller monitors OCI registries for new runtime image versions, applies updates with health verification, and rolls back on failure with circuit-breaker protection.
+
+| Package | Purpose |
+| --- | --- |
+| `internal/controller/autoupdate_controller.go` | Reconciler with cron scheduling, health checks, rollback |
+| `internal/registry/resolver.go` | OCI registry client, semver resolution, tag/token caching |
+| `internal/controller/autoupdate/` | Controller tests (separate dir to avoid envtest TestMain) |
+
 ### Adding a new RuntimeBridge
 
 1. Create `internal/ipcbus/bridge_yourprotocol.go` implementing `RuntimeBridge`

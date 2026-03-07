@@ -167,6 +167,144 @@ kubectl exec <pod> -c claw-ipcbus -- cat /var/run/claw/dlq.db | head
 
 **Fix:** Check runtime health. The `resume` signal is sent when buffer drops below low watermark (default 0.3).
 
+## Auto-Update Controller
+
+The auto-update controller monitors OCI registries for new runtime image versions and applies updates with health verification. It uses a state machine (Idle → HealthCheck → Success/Rollback) with circuit-breaker protection.
+
+### Configuration
+
+Auto-update is configured per Claw CR via `spec.autoUpdate`:
+
+```yaml
+spec:
+  autoUpdate:
+    enabled: true
+    schedule: "0 3 * * *"           # Cron schedule (default: 3 AM daily)
+    versionConstraint: "^1.0.0"     # Semver constraint
+    healthTimeout: "10m"            # Health check timeout (default: 10m)
+    maxRollbacks: 3                 # Rollbacks before circuit opens (default: 3)
+```
+
+### Prometheus Metrics
+
+| Metric | Type | Labels | Description |
+| --- | --- | --- | --- |
+| `claw_autoupdate_checks_total` | Counter | `namespace` | Total version check attempts |
+| `claw_autoupdate_results_total` | Counter | `namespace`, `result` | Update outcomes (`success`, `rollback`) |
+| `claw_autoupdate_circuit_open` | Gauge | `namespace`, `name` | Circuit breaker state (0 or 1) |
+
+### Key Alerts
+
+```yaml
+# Circuit breaker open — auto-updates are blocked
+- alert: AutoUpdateCircuitOpen
+  expr: claw_autoupdate_circuit_open == 1
+  for: 5m
+  labels:
+    severity: warning
+  annotations:
+    summary: "Auto-update circuit breaker open for {{ $labels.namespace }}/{{ $labels.name }}"
+    description: "Repeated rollbacks have triggered the circuit breaker. Manual intervention required."
+
+# Repeated rollbacks
+- alert: AutoUpdateRollbackRate
+  expr: rate(claw_autoupdate_results_total{result="rollback"}[1h]) > 0
+  for: 30m
+  labels:
+    severity: warning
+  annotations:
+    summary: "Auto-update rollbacks occurring in {{ $labels.namespace }}"
+```
+
+### Status Conditions
+
+The controller sets two status conditions on the Claw resource:
+
+| Condition | Description |
+| --- | --- |
+| `AutoUpdateAvailable` | `True` when a newer version matching the constraint is found |
+| `AutoUpdateInProgress` | `True` during the health check phase after an update is applied |
+
+```bash
+kubectl get claw my-claw -o jsonpath='{.status.conditions}' | jq .
+```
+
+### Common Issues
+
+#### Registry unreachable
+
+**Symptom:** Version checks fail, no updates applied. Check operator logs for `failed to list tags from registry`.
+
+**Causes:**
+- Network policy blocking egress to the registry
+- Registry credentials expired or missing
+- Registry rate limiting
+
+**Fix:** Verify network connectivity from the operator pod. The controller retries after 5 minutes on failure.
+
+#### Circuit breaker open
+
+**Symptom:** `claw_autoupdate_circuit_open` is 1. Kubernetes events show `AutoUpdateCircuitOpen`.
+
+**Cause:** The controller hit `maxRollbacks` consecutive failed updates. Failed versions are tracked in `status.autoUpdate.failedVersions`.
+
+**Investigation:**
+
+```bash
+# Check failed versions and rollback count
+kubectl get claw my-claw -o jsonpath='{.status.autoUpdate}' | jq .
+
+# Check Kubernetes events for rollback reasons
+kubectl describe claw my-claw | grep -A 2 AutoUpdate
+```
+
+**Fix:** Resolve the underlying issue (broken image, resource limits, etc.), then reset the circuit breaker:
+
+```bash
+kubectl patch claw my-claw --type=merge --subresource=status \
+  -p '{"status":{"autoUpdate":{"circuitOpen":false,"rollbackCount":0,"failedVersions":[]}}}'
+```
+
+#### Health check timeout
+
+**Symptom:** Updates are applied but roll back after `healthTimeout` (default 10m).
+
+**Cause:** The new version's pods are not becoming Ready within the timeout. The controller checks that both `UpdatedReplicas` and `ReadyReplicas` match the desired replica count.
+
+**Investigation:**
+
+```bash
+# Check StatefulSet rollout status
+kubectl rollout status statefulset my-claw
+
+# Check pod events
+kubectl describe pod my-claw-0 | tail -20
+```
+
+**Fix:** Increase `healthTimeout` if the runtime needs more startup time, or fix the image causing readiness probe failures.
+
+#### Image is digest-pinned
+
+**Symptom:** Auto-update enabled but no version checks occur.
+
+**Cause:** The `claw.prismer.ai/target-image` annotation contains a `@sha256:` digest reference. The controller skips digest-pinned images by design.
+
+**Fix:** Remove the digest pin to allow tag-based updates.
+
+### Manual Update Rollback
+
+To manually trigger a rollback to the default runtime image:
+
+```bash
+# Remove the target-image annotation
+kubectl annotate claw my-claw \
+  claw.prismer.ai/target-image- \
+  claw.prismer.ai/update-phase- \
+  claw.prismer.ai/update-started-
+```
+
+The ClawReconciler will rebuild the StatefulSet with the default image for the runtime type on the next reconciliation.
+
 ## Rollback
 
 ### Rollback Operator

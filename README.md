@@ -25,6 +25,7 @@ k8s4claw provides unified lifecycle management for multiple AI agent runtimes:
 - **Channel sidecars** — Pluggable communication (Slack, Telegram, Discord, custom)
 - **IPC Bus** — Native sidecar with WAL-backed delivery, backpressure, and DLQ
 - **Persistence** — PVC lifecycle, CSI snapshots, S3 archival
+- **Auto-update** — OCI registry polling, semver constraints, health-verified rollouts with circuit breaker
 - **Observability** — Prometheus metrics, status conditions, K8s Events
 - **Go SDK** — Simple client for infrastructure integration
 
@@ -87,6 +88,7 @@ Design documents:
 
 - [Operator Core Design](docs/plans/2026-03-04-k8s4claw-design.md)
 - [IPC Bus + Resilience Design](docs/plans/2026-03-05-phase4-ipcbus-resilience-design.md)
+- [Auto-Update Controller Design](docs/plans/2026-03-07-auto-update-design.md)
 
 ## Development
 
