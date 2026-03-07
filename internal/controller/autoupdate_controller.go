@@ -9,6 +9,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	apimeta "k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/tools/record"
@@ -27,6 +28,9 @@ const (
 	annotationUpdatePhase = "claw.prismer.ai/update-phase"
 	annotationUpdateStart = "claw.prismer.ai/update-started"
 
+	conditionAutoUpdateAvailable  = "AutoUpdateAvailable"
+	conditionAutoUpdateInProgress = "AutoUpdateInProgress"
+
 	defaultSchedule      = "0 3 * * *"
 	defaultHealthTimeout = 10 * time.Minute
 	defaultMaxRollbacks  = 3
@@ -43,12 +47,31 @@ type TagLister interface {
 	ListTags(ctx context.Context, image string) ([]string, error)
 }
 
+// Clock abstracts time operations for testability.
+type Clock interface {
+	Now() time.Time
+	Since(t time.Time) time.Duration
+}
+
+type realClock struct{}
+
+func (realClock) Now() time.Time                { return time.Now() }
+func (realClock) Since(t time.Time) time.Duration { return time.Since(t) }
+
 // AutoUpdateReconciler checks for new image versions and manages the update lifecycle.
 type AutoUpdateReconciler struct {
 	client.Client
 	Scheme    *runtime.Scheme
 	Recorder  record.EventRecorder
 	TagLister TagLister
+	Clock     Clock
+}
+
+func (r *AutoUpdateReconciler) clock() Clock {
+	if r.Clock != nil {
+		return r.Clock
+	}
+	return realClock{}
 }
 
 // +kubebuilder:rbac:groups=claw.prismer.ai,resources=claws,verbs=get;list;watch;update;patch
@@ -94,7 +117,7 @@ func (r *AutoUpdateReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		schedule = defaultSchedule
 	}
 
-	if status.LastCheck != nil && !r.isCheckDue(schedule, status.LastCheck.Time) {
+	if status.LastCheck != nil && !r.isCheckDue(schedule, status.LastCheck.Time, r.clock().Now()) {
 		return r.requeueAtNextCron(spec), nil
 	}
 
@@ -140,6 +163,10 @@ func (r *AutoUpdateReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 		r.Recorder.Event(&claw, corev1.EventTypeWarning, EventAutoUpdateCircuitOpen,
 			fmt.Sprintf("Auto-update circuit breaker open (rollbacks: %d), version %s available but not applied", status.RollbackCount, newVersion))
 		SetAutoUpdateCircuit(claw.Namespace, claw.Name, true)
+		apimeta.SetStatusCondition(&claw.Status.Conditions, metav1.Condition{
+			Type: conditionAutoUpdateAvailable, Status: metav1.ConditionTrue, Reason: "NewVersionFound",
+			Message: fmt.Sprintf("Version %s is available (circuit open)", newVersion), ObservedGeneration: claw.Generation,
+		})
 		if err := r.Status().Update(ctx, &claw); err != nil {
 			return ctrl.Result{}, fmt.Errorf("failed to update status: %w", err)
 		}
@@ -163,7 +190,15 @@ func (r *AutoUpdateReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	claw.Annotations[annotationUpdateStart] = now.Format(time.RFC3339)
 	status.LastUpdate = &now
 
-	// Update annotations first, then re-fetch and update status.
+	// Collect conditions to apply after re-fetch.
+	pendingConditions := []metav1.Condition{
+		{Type: conditionAutoUpdateAvailable, Status: metav1.ConditionTrue, Reason: "NewVersionFound",
+			Message: fmt.Sprintf("Version %s is available", newVersion), ObservedGeneration: claw.Generation},
+		{Type: conditionAutoUpdateInProgress, Status: metav1.ConditionTrue, Reason: "UpdateStarted",
+			Message: fmt.Sprintf("Updating to version %s", newVersion), ObservedGeneration: claw.Generation},
+	}
+
+	// Update annotations first, then re-fetch and merge status.
 	if err := r.Update(ctx, &claw); err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to set target-image annotation: %w", err)
 	}
@@ -171,7 +206,10 @@ func (r *AutoUpdateReconciler) Reconcile(ctx context.Context, req ctrl.Request) 
 	if err := r.Get(ctx, req.NamespacedName, &claw); err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to re-fetch after annotation update: %w", err)
 	}
-	claw.Status.AutoUpdate = status
+	mergeAutoUpdateStatus(&claw, status)
+	for _, c := range pendingConditions {
+		apimeta.SetStatusCondition(&claw.Status.Conditions, c)
+	}
 	if err := r.Status().Update(ctx, &claw); err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to update status: %w", err)
 	}
@@ -204,7 +242,7 @@ func (r *AutoUpdateReconciler) reconcileHealthCheck(ctx context.Context, claw *c
 	if err := r.Get(ctx, client.ObjectKeyFromObject(claw), &sts); err != nil {
 		if apierrors.IsNotFound(err) {
 			logger.Info("StatefulSet not found during health check")
-			if time.Since(startedAt) > healthTimeout {
+			if r.clock().Since(startedAt) > healthTimeout {
 				return r.rollback(ctx, claw, "StatefulSet not found within health timeout")
 			}
 			return ctrl.Result{RequeueAfter: healthCheckPollInterval}, nil
@@ -237,6 +275,13 @@ func (r *AutoUpdateReconciler) reconcileHealthCheck(ctx context.Context, claw *c
 		SetAutoUpdateCircuit(claw.Namespace, claw.Name, false)
 		RecordAutoUpdateResult(claw.Namespace, "success")
 
+		pendingConditions := []metav1.Condition{
+			{Type: conditionAutoUpdateAvailable, Status: metav1.ConditionFalse, Reason: "UpToDate",
+				Message: fmt.Sprintf("Running version %s", version), ObservedGeneration: claw.Generation},
+			{Type: conditionAutoUpdateInProgress, Status: metav1.ConditionFalse, Reason: "UpdateComplete",
+				Message: fmt.Sprintf("Successfully updated to version %s", version), ObservedGeneration: claw.Generation},
+		}
+
 		// Clear update annotations.
 		delete(claw.Annotations, annotationUpdatePhase)
 		delete(claw.Annotations, annotationUpdateStart)
@@ -248,7 +293,10 @@ func (r *AutoUpdateReconciler) reconcileHealthCheck(ctx context.Context, claw *c
 		if err := r.Get(ctx, client.ObjectKeyFromObject(claw), claw); err != nil {
 			return ctrl.Result{}, fmt.Errorf("failed to re-fetch after annotation update: %w", err)
 		}
-		claw.Status.AutoUpdate = status
+		mergeAutoUpdateStatus(claw, status)
+		for _, c := range pendingConditions {
+			apimeta.SetStatusCondition(&claw.Status.Conditions, c)
+		}
 		if err := r.Status().Update(ctx, claw); err != nil {
 			return ctrl.Result{}, fmt.Errorf("failed to update status after health check: %w", err)
 		}
@@ -257,12 +305,12 @@ func (r *AutoUpdateReconciler) reconcileHealthCheck(ctx context.Context, claw *c
 	}
 
 	// Check timeout.
-	if time.Since(startedAt) > healthTimeout {
-		logger.Info("health check timeout", "elapsed", time.Since(startedAt), "timeout", healthTimeout)
+	if r.clock().Since(startedAt) > healthTimeout {
+		logger.Info("health check timeout", "elapsed", r.clock().Since(startedAt), "timeout", healthTimeout)
 		return r.rollback(ctx, claw, "health check timed out")
 	}
 
-	logger.Info("waiting for health check", "elapsed", time.Since(startedAt), "timeout", healthTimeout)
+	logger.Info("waiting for health check", "elapsed", r.clock().Since(startedAt), "timeout", healthTimeout)
 	return ctrl.Result{RequeueAfter: healthCheckPollInterval}, nil
 }
 
@@ -303,6 +351,11 @@ func (r *AutoUpdateReconciler) rollback(ctx context.Context, claw *clawv1alpha1.
 			fmt.Sprintf("Circuit breaker opened after %d rollbacks", status.RollbackCount))
 	}
 
+	pendingConditions := []metav1.Condition{
+		{Type: conditionAutoUpdateInProgress, Status: metav1.ConditionFalse, Reason: "RolledBack",
+			Message: fmt.Sprintf("Version %s rolled back: %s", failedVersion, reason), ObservedGeneration: claw.Generation},
+	}
+
 	// Remove target-image annotation to revert to default.
 	delete(claw.Annotations, annotationTargetImage)
 	delete(claw.Annotations, annotationUpdatePhase)
@@ -315,7 +368,10 @@ func (r *AutoUpdateReconciler) rollback(ctx context.Context, claw *clawv1alpha1.
 	if err := r.Get(ctx, client.ObjectKeyFromObject(claw), claw); err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to re-fetch after rollback annotation update: %w", err)
 	}
-	claw.Status.AutoUpdate = status
+	mergeAutoUpdateStatus(claw, status)
+	for _, c := range pendingConditions {
+		apimeta.SetStatusCondition(&claw.Status.Conditions, c)
+	}
 	if err := r.Status().Update(ctx, claw); err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to update status on rollback: %w", err)
 	}
@@ -324,14 +380,14 @@ func (r *AutoUpdateReconciler) rollback(ctx context.Context, claw *clawv1alpha1.
 }
 
 // isCheckDue returns true if the next cron tick is in the past relative to lastCheck.
-func (r *AutoUpdateReconciler) isCheckDue(schedule string, lastCheck time.Time) bool {
+func (r *AutoUpdateReconciler) isCheckDue(schedule string, lastCheck, now time.Time) bool {
 	parser := cron.NewParser(cron.Minute | cron.Hour | cron.Dom | cron.Month | cron.Dow)
 	sched, err := parser.Parse(schedule)
 	if err != nil {
 		return true // invalid schedule: check every reconcile
 	}
 	next := sched.Next(lastCheck)
-	return time.Now().After(next)
+	return now.After(next)
 }
 
 // requeueAtNextCron calculates the delay until the next cron tick.
@@ -345,8 +401,9 @@ func (r *AutoUpdateReconciler) requeueAtNextCron(spec *clawv1alpha1.AutoUpdateSp
 	if err != nil {
 		return ctrl.Result{RequeueAfter: 1 * time.Hour} // fallback
 	}
-	next := sched.Next(time.Now())
-	delay := time.Until(next)
+	now := r.clock().Now()
+	next := sched.Next(now)
+	delay := next.Sub(now)
 	if delay < 1*time.Minute {
 		delay = 1 * time.Minute
 	}
@@ -377,6 +434,23 @@ func containsString(slice []string, s string) bool {
 		}
 	}
 	return false
+}
+
+// mergeAutoUpdateStatus applies local status changes into a freshly fetched Claw object,
+// avoiding wholesale pointer replacement that could silently overwrite concurrent updates.
+func mergeAutoUpdateStatus(claw *clawv1alpha1.Claw, local *clawv1alpha1.AutoUpdateStatus) {
+	if claw.Status.AutoUpdate == nil {
+		claw.Status.AutoUpdate = &clawv1alpha1.AutoUpdateStatus{}
+	}
+	s := claw.Status.AutoUpdate
+	s.CurrentVersion = local.CurrentVersion
+	s.AvailableVersion = local.AvailableVersion
+	s.LastCheck = local.LastCheck
+	s.LastUpdate = local.LastUpdate
+	s.RollbackCount = local.RollbackCount
+	s.CircuitOpen = local.CircuitOpen
+	s.FailedVersions = local.FailedVersions
+	s.VersionHistory = local.VersionHistory
 }
 
 func (r *AutoUpdateReconciler) SetupWithManager(mgr ctrl.Manager) error {

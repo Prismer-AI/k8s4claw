@@ -24,10 +24,18 @@ type RegistryClient struct {
 
 	mu    sync.Mutex
 	cache map[string]*cacheEntry
+
+	tokenMu    sync.Mutex
+	tokenCache map[string]*tokenCacheEntry
 }
 
 type cacheEntry struct {
 	tags      []string
+	expiresAt time.Time
+}
+
+type tokenCacheEntry struct {
+	token     string
 	expiresAt time.Time
 }
 
@@ -55,6 +63,7 @@ func NewRegistryClient(opts ...Option) *RegistryClient {
 		httpClient: &http.Client{Timeout: 30 * time.Second},
 		cacheTTL:   15 * time.Minute,
 		cache:      make(map[string]*cacheEntry),
+		tokenCache: make(map[string]*tokenCacheEntry),
 	}
 	for _, o := range opts {
 		o(c)
@@ -78,10 +87,14 @@ type tokenResponse struct {
 func (c *RegistryClient) ListTags(ctx context.Context, image string) ([]string, error) {
 	// Check cache.
 	c.mu.Lock()
-	if entry, ok := c.cache[image]; ok && time.Now().Before(entry.expiresAt) {
-		tags := append([]string(nil), entry.tags...)
-		c.mu.Unlock()
-		return tags, nil
+	if entry, ok := c.cache[image]; ok {
+		if time.Now().Before(entry.expiresAt) {
+			tags := append([]string(nil), entry.tags...)
+			c.mu.Unlock()
+			return tags, nil
+		}
+		// Evict stale entry.
+		delete(c.cache, image)
 	}
 	c.mu.Unlock()
 
@@ -127,8 +140,22 @@ func (c *RegistryClient) ListTags(ctx context.Context, image string) ([]string, 
 	return result.Tags, nil
 }
 
+const tokenCacheTTL = 4 * time.Minute // GHCR tokens typically last 5 minutes
+
 func (c *RegistryClient) exchangeToken(ctx context.Context, image string) (string, error) {
 	scope := extractScope(image)
+
+	// Check token cache.
+	c.tokenMu.Lock()
+	if entry, ok := c.tokenCache[scope]; ok {
+		if time.Now().Before(entry.expiresAt) {
+			token := entry.token
+			c.tokenMu.Unlock()
+			return token, nil
+		}
+		delete(c.tokenCache, scope)
+	}
+	c.tokenMu.Unlock()
 
 	u, err := url.Parse(c.tokenURL)
 	if err != nil {
@@ -157,6 +184,15 @@ func (c *RegistryClient) exchangeToken(ctx context.Context, image string) (strin
 	if err := json.NewDecoder(io.LimitReader(resp.Body, maxResponseBytes)).Decode(&result); err != nil {
 		return "", fmt.Errorf("failed to decode token response: %w", err)
 	}
+
+	// Cache the token.
+	c.tokenMu.Lock()
+	c.tokenCache[scope] = &tokenCacheEntry{
+		token:     result.Token,
+		expiresAt: time.Now().Add(tokenCacheTTL),
+	}
+	c.tokenMu.Unlock()
+
 	return result.Token, nil
 }
 
