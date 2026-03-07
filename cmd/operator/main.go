@@ -21,6 +21,7 @@ import (
 
 	clawv1alpha1 "github.com/Prismer-AI/k8s4claw/api/v1alpha1"
 	"github.com/Prismer-AI/k8s4claw/internal/controller"
+	clawregistry "github.com/Prismer-AI/k8s4claw/internal/registry"
 	clawruntime "github.com/Prismer-AI/k8s4claw/internal/runtime"
 	clawwebhook "github.com/Prismer-AI/k8s4claw/internal/webhook"
 )
@@ -103,6 +104,18 @@ func main() {
 		Recorder: mgr.GetEventRecorderFor("selfconfig-controller"),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "ClawSelfConfig")
+		os.Exit(1)
+	}
+
+	// Register auto-update controller.
+	registryClient := clawregistry.NewRegistryClient()
+	if err := (&controller.AutoUpdateReconciler{
+		Client:    mgr.GetClient(),
+		Scheme:    mgr.GetScheme(),
+		Recorder:  mgr.GetEventRecorderFor("autoupdate-controller"),
+		TagLister: registryClient,
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "AutoUpdate")
 		os.Exit(1)
 	}
 

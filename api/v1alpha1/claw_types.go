@@ -50,6 +50,10 @@ type ClawSpec struct {
 	// SelfConfigure enables agent self-configuration.
 	// +optional
 	SelfConfigure *SelfConfigureSpec `json:"selfConfigure,omitempty"`
+
+	// AutoUpdate configures automatic version updates.
+	// +optional
+	AutoUpdate *AutoUpdateSpec `json:"autoUpdate,omitempty"`
 }
 
 // SelfConfigureSpec controls agent self-configuration.
@@ -108,6 +112,10 @@ type ClawStatus struct {
 	// Persistence reports storage status.
 	// +optional
 	Persistence *PersistenceStatus `json:"persistence,omitempty"`
+
+	// AutoUpdate reports auto-update state.
+	// +optional
+	AutoUpdate *AutoUpdateStatus `json:"autoUpdate,omitempty"`
 }
 
 // ChannelStatus reports the status of a connected channel.

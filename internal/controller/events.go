@@ -10,4 +10,10 @@ const (
 	EventReconcileError    = "ReconcileError"
 	EventSelfConfigApplied = "SelfConfigApplied"
 	EventSelfConfigDenied  = "SelfConfigDenied"
+
+	EventAutoUpdateAvailable   = "AutoUpdateAvailable"
+	EventAutoUpdateStarting    = "AutoUpdateStarting"
+	EventAutoUpdateComplete    = "AutoUpdateComplete"
+	EventAutoUpdateRollback    = "AutoUpdateRollback"
+	EventAutoUpdateCircuitOpen = "AutoUpdateCircuitOpen"
 )

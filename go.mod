@@ -3,6 +3,7 @@ module github.com/Prismer-AI/k8s4claw
 go 1.25.0
 
 require (
+	github.com/Masterminds/semver/v3 v3.4.0
 	github.com/coder/websocket v1.8.14
 	github.com/go-logr/logr v1.4.3
 	github.com/go-logr/zapr v1.3.0

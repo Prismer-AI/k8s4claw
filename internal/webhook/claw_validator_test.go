@@ -319,3 +319,103 @@ func searchString(s, substr string) bool {
 	}
 	return false
 }
+
+func TestValidateAutoUpdate_InvalidConstraint(t *testing.T) {
+	claw := &clawv1alpha1.Claw{
+		Spec: clawv1alpha1.ClawSpec{
+			Runtime: clawv1alpha1.RuntimeOpenClaw,
+			AutoUpdate: &clawv1alpha1.AutoUpdateSpec{
+				Enabled:           true,
+				VersionConstraint: "not-a-semver",
+			},
+		},
+	}
+	v := &ClawValidator{Registry: newRegistry()}
+	_, err := v.ValidateCreate(context.Background(), claw)
+	if err == nil {
+		t.Error("expected error for invalid version constraint")
+	}
+}
+
+func TestValidateAutoUpdate_InvalidSchedule(t *testing.T) {
+	claw := &clawv1alpha1.Claw{
+		Spec: clawv1alpha1.ClawSpec{
+			Runtime: clawv1alpha1.RuntimeOpenClaw,
+			AutoUpdate: &clawv1alpha1.AutoUpdateSpec{
+				Enabled:  true,
+				Schedule: "not-a-cron",
+			},
+		},
+	}
+	v := &ClawValidator{Registry: newRegistry()}
+	_, err := v.ValidateCreate(context.Background(), claw)
+	if err == nil {
+		t.Error("expected error for invalid schedule")
+	}
+}
+
+func TestValidateAutoUpdate_HealthTimeoutRange(t *testing.T) {
+	tests := []struct {
+		name    string
+		timeout string
+		wantErr bool
+	}{
+		{"valid 5m", "5m", false},
+		{"valid 10m", "10m", false},
+		{"too short", "1m", true},
+		{"too long", "1h", true},
+		{"invalid", "not-a-duration", true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			claw := &clawv1alpha1.Claw{
+				Spec: clawv1alpha1.ClawSpec{
+					Runtime: clawv1alpha1.RuntimeOpenClaw,
+					AutoUpdate: &clawv1alpha1.AutoUpdateSpec{
+						Enabled:       true,
+						HealthTimeout: tt.timeout,
+					},
+				},
+			}
+			v := &ClawValidator{Registry: newRegistry()}
+			_, err := v.ValidateCreate(context.Background(), claw)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("wantErr = %v, got err = %v", tt.wantErr, err)
+			}
+		})
+	}
+}
+
+func TestValidateAutoUpdate_MaxRollbacksPositive(t *testing.T) {
+	claw := &clawv1alpha1.Claw{
+		Spec: clawv1alpha1.ClawSpec{
+			Runtime: clawv1alpha1.RuntimeOpenClaw,
+			AutoUpdate: &clawv1alpha1.AutoUpdateSpec{
+				Enabled:      true,
+				MaxRollbacks: -1,
+			},
+		},
+	}
+	v := &ClawValidator{Registry: newRegistry()}
+	_, err := v.ValidateCreate(context.Background(), claw)
+	if err == nil {
+		t.Error("expected error for negative maxRollbacks")
+	}
+}
+
+func TestValidateAutoUpdate_Disabled_NoValidation(t *testing.T) {
+	claw := &clawv1alpha1.Claw{
+		Spec: clawv1alpha1.ClawSpec{
+			Runtime: clawv1alpha1.RuntimeOpenClaw,
+			AutoUpdate: &clawv1alpha1.AutoUpdateSpec{
+				Enabled:           false,
+				VersionConstraint: "invalid",
+			},
+		},
+	}
+	v := &ClawValidator{Registry: newRegistry()}
+	_, err := v.ValidateCreate(context.Background(), claw)
+	if err != nil {
+		t.Errorf("expected no errors when disabled, got %v", err)
+	}
+}

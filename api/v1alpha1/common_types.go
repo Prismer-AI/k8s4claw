@@ -1,6 +1,9 @@
 package v1alpha1
 
-import corev1 "k8s.io/api/core/v1"
+import (
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+)
 
 // RuntimeType defines the type of Claw runtime.
 // +kubebuilder:validation:Enum=openclaw;nanoclaw;zeroclaw;picoclaw;custom
@@ -368,4 +371,82 @@ type BackpressureSpec struct {
 	// LowWatermark triggers resume signal (0.0-1.0).
 	// +kubebuilder:default="0.3"
 	LowWatermark string `json:"lowWatermark,omitempty"`
+}
+
+// AutoUpdateSpec configures automatic version updates.
+type AutoUpdateSpec struct {
+	// Enabled controls whether auto-update is active.
+	Enabled bool `json:"enabled"`
+
+	// VersionConstraint is a semver constraint (e.g., "~1.x", "^2.0.0").
+	// +optional
+	VersionConstraint string `json:"versionConstraint,omitempty"`
+
+	// Schedule is a cron expression for version checks (default: "0 3 * * *").
+	// +optional
+	Schedule string `json:"schedule,omitempty"`
+
+	// HealthTimeout is how long to wait for Pod readiness after update (default: "10m", range: 2m-30m).
+	// +optional
+	HealthTimeout string `json:"healthTimeout,omitempty"`
+
+	// MaxRollbacks is the circuit breaker threshold (default: 3).
+	// +optional
+	MaxRollbacks int `json:"maxRollbacks,omitempty"`
+}
+
+// AutoUpdateStatus reports auto-update state.
+type AutoUpdateStatus struct {
+	// CurrentVersion is the currently running image tag.
+	// +optional
+	CurrentVersion string `json:"currentVersion,omitempty"`
+
+	// AvailableVersion is the latest version found in the registry.
+	// +optional
+	AvailableVersion string `json:"availableVersion,omitempty"`
+
+	// LastCheck is when the registry was last queried.
+	// +optional
+	LastCheck *metav1.Time `json:"lastCheck,omitempty"`
+
+	// LastUpdate is when the last update was applied.
+	// +optional
+	LastUpdate *metav1.Time `json:"lastUpdate,omitempty"`
+
+	// RollbackCount is the number of consecutive rollbacks.
+	// +optional
+	RollbackCount int `json:"rollbackCount,omitempty"`
+
+	// FailedVersions are versions that failed health checks and will be skipped.
+	// +optional
+	FailedVersions []string `json:"failedVersions,omitempty"`
+
+	// CircuitOpen is true when rollbackCount >= maxRollbacks.
+	// +optional
+	CircuitOpen bool `json:"circuitOpen,omitempty"`
+
+	// VersionHistory records past update attempts.
+	// +optional
+	VersionHistory []VersionHistoryEntry `json:"versionHistory,omitempty"`
+}
+
+// VersionHistoryStatus represents the outcome of a version update.
+// +kubebuilder:validation:Enum=Healthy;RolledBack
+type VersionHistoryStatus string
+
+const (
+	VersionHistoryHealthy    VersionHistoryStatus = "Healthy"
+	VersionHistoryRolledBack VersionHistoryStatus = "RolledBack"
+)
+
+// VersionHistoryEntry records a single update attempt.
+type VersionHistoryEntry struct {
+	// Version is the image tag.
+	Version string `json:"version"`
+
+	// AppliedAt is when the update was applied.
+	AppliedAt metav1.Time `json:"appliedAt"`
+
+	// Status is the outcome of this update attempt.
+	Status VersionHistoryStatus `json:"status"`
 }

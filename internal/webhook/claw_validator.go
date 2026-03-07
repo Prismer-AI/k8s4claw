@@ -3,7 +3,10 @@ package webhook
 import (
 	"context"
 	"fmt"
+	"time"
 
+	"github.com/Masterminds/semver/v3"
+	"github.com/robfig/cron/v3"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
@@ -21,6 +24,7 @@ func (v *ClawValidator) ValidateCreate(ctx context.Context, obj *clawv1alpha1.Cl
 	allErrs := field.ErrorList{}
 	allErrs = append(allErrs, validateCredentialExclusivity(obj)...)
 	allErrs = append(allErrs, validatePVCSizes(obj)...)
+	allErrs = append(allErrs, validateAutoUpdate(obj)...)
 	allErrs = append(allErrs, v.validateRuntime(ctx, obj)...)
 
 	if len(allErrs) > 0 {
@@ -34,6 +38,7 @@ func (v *ClawValidator) ValidateUpdate(ctx context.Context, oldObj, newObj *claw
 	allErrs = append(allErrs, validateRuntimeImmutability(oldObj, newObj)...)
 	allErrs = append(allErrs, validateCredentialExclusivity(newObj)...)
 	allErrs = append(allErrs, validatePVCSizes(newObj)...)
+	allErrs = append(allErrs, validateAutoUpdate(newObj)...)
 	allErrs = append(allErrs, v.validateRuntimeUpdate(ctx, oldObj, newObj)...)
 
 	if len(allErrs) > 0 {
@@ -136,6 +141,65 @@ func (v *ClawValidator) validateRuntime(ctx context.Context, obj *clawv1alpha1.C
 		}
 	}
 	return adapter.Validate(ctx, &obj.Spec)
+}
+
+// validateAutoUpdate validates auto-update spec fields.
+func validateAutoUpdate(obj *clawv1alpha1.Claw) field.ErrorList {
+	au := obj.Spec.AutoUpdate
+	if au == nil || !au.Enabled {
+		return nil
+	}
+
+	var allErrs field.ErrorList
+	basePath := field.NewPath("spec", "autoUpdate")
+
+	if au.VersionConstraint != "" {
+		if _, err := semver.NewConstraint(au.VersionConstraint); err != nil {
+			allErrs = append(allErrs, field.Invalid(
+				basePath.Child("versionConstraint"),
+				au.VersionConstraint,
+				"must be a valid semver constraint (e.g., ^1.0.0, ~1.x)",
+			))
+		}
+	}
+
+	if au.Schedule != "" {
+		parser := cron.NewParser(cron.Minute | cron.Hour | cron.Dom | cron.Month | cron.Dow)
+		if _, err := parser.Parse(au.Schedule); err != nil {
+			allErrs = append(allErrs, field.Invalid(
+				basePath.Child("schedule"),
+				au.Schedule,
+				"must be a valid cron expression",
+			))
+		}
+	}
+
+	if au.HealthTimeout != "" {
+		d, err := time.ParseDuration(au.HealthTimeout)
+		if err != nil {
+			allErrs = append(allErrs, field.Invalid(
+				basePath.Child("healthTimeout"),
+				au.HealthTimeout,
+				"must be a valid duration",
+			))
+		} else if d < 2*time.Minute || d > 30*time.Minute {
+			allErrs = append(allErrs, field.Invalid(
+				basePath.Child("healthTimeout"),
+				au.HealthTimeout,
+				"must be between 2m and 30m",
+			))
+		}
+	}
+
+	if au.MaxRollbacks < 0 {
+		allErrs = append(allErrs, field.Invalid(
+			basePath.Child("maxRollbacks"),
+			au.MaxRollbacks,
+			"must be >= 0",
+		))
+	}
+
+	return allErrs
 }
 
 // validateRuntimeUpdate delegates UPDATE validation to the runtime adapter.

@@ -353,6 +353,16 @@ func (r *ClawReconciler) buildStatefulSet(ctx context.Context, claw *clawv1alpha
 
 	podTemplate := adapter.PodTemplate(claw)
 
+	// Auto-update: override runtime image if target-image annotation is set.
+	if targetImage := claw.Annotations["claw.prismer.ai/target-image"]; targetImage != "" {
+		for i := range podTemplate.Spec.Containers {
+			if podTemplate.Spec.Containers[i].Name == "runtime" {
+				podTemplate.Spec.Containers[i].Image = targetImage
+				break
+			}
+		}
+	}
+
 	// Apply labels to the pod template.
 	if podTemplate.Labels == nil {
 		podTemplate.Labels = make(map[string]string)

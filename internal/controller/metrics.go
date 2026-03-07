@@ -38,6 +38,21 @@ var (
 		Name: "claw_resource_creation_failures_total",
 		Help: "Sub-resource creation failures.",
 	}, []string{"namespace", "resource"})
+
+	autoUpdateChecks = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "claw_autoupdate_checks_total",
+		Help: "Total auto-update version checks.",
+	}, []string{"namespace"})
+
+	autoUpdateResults = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "claw_autoupdate_updates_total",
+		Help: "Total auto-update attempts by result.",
+	}, []string{"namespace", "result"})
+
+	autoUpdateCircuit = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "claw_autoupdate_circuit_open",
+		Help: "Whether the auto-update circuit breaker is open (1=open, 0=closed).",
+	}, []string{"namespace", "instance"})
 )
 
 // RecordReconcile records a reconcile invocation with its duration and result.
@@ -75,4 +90,24 @@ func SetInstanceReady(namespace, instance string, ready bool) {
 // RecordResourceCreationFailure increments the resource creation failure counter.
 func RecordResourceCreationFailure(namespace, resource string) {
 	resourceCreationFailures.WithLabelValues(namespace, resource).Inc()
+}
+
+// RecordAutoUpdateCheck increments the version check counter.
+func RecordAutoUpdateCheck(namespace string) {
+	autoUpdateChecks.WithLabelValues(namespace).Inc()
+}
+
+// RecordAutoUpdateResult increments the update result counter.
+// result should be "success" or "rollback".
+func RecordAutoUpdateResult(namespace, result string) {
+	autoUpdateResults.WithLabelValues(namespace, result).Inc()
+}
+
+// SetAutoUpdateCircuit sets the circuit breaker gauge.
+func SetAutoUpdateCircuit(namespace, instance string, open bool) {
+	val := float64(0)
+	if open {
+		val = 1
+	}
+	autoUpdateCircuit.WithLabelValues(namespace, instance).Set(val)
 }
