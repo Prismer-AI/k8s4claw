@@ -59,12 +59,13 @@ func TestMain(m *testing.M) {
 		panic("failed to add clawv1alpha1 to scheme: " + err.Error())
 	}
 
-	// Build the runtime registry with all 4 adapters.
+	// Build the runtime registry with all 5 adapters.
 	registry := clawruntime.NewRegistry()
 	registry.Register(clawv1alpha1.RuntimeOpenClaw, &clawruntime.OpenClawAdapter{})
 	registry.Register(clawv1alpha1.RuntimeNanoClaw, &clawruntime.NanoClawAdapter{})
 	registry.Register(clawv1alpha1.RuntimeZeroClaw, &clawruntime.ZeroClawAdapter{})
 	registry.Register(clawv1alpha1.RuntimePicoClaw, &clawruntime.PicoClawAdapter{})
+	registry.Register(clawv1alpha1.RuntimeIronClaw, &clawruntime.IronClawAdapter{})
 
 	// Configure webhook server using envtest-assigned host/port/certs.
 	webhookInstallOptions := &testEnv.WebhookInstallOptions

@@ -21,6 +21,14 @@ spec:
     - jsonPath: .status.phase
       name: Phase
       type: string
+    - jsonPath: .status.autoUpdate.currentVersion
+      name: Version
+      priority: 1
+      type: string
+    - jsonPath: .status.autoUpdate.circuitOpen
+      name: Circuit
+      priority: 1
+      type: boolean
     - jsonPath: .metadata.creationTimestamp
       name: Age
       type: date
@@ -49,6 +57,31 @@ spec:
           spec:
             description: ClawSpec defines the desired state of a Claw agent instance.
             properties:
+              autoUpdate:
+                description: AutoUpdate configures automatic version updates.
+                properties:
+                  enabled:
+                    description: Enabled controls whether auto-update is active.
+                    type: boolean
+                  healthTimeout:
+                    description: 'HealthTimeout is how long to wait for Pod readiness
+                      after update (default: "10m", range: 2m-30m).'
+                    type: string
+                  maxRollbacks:
+                    description: 'MaxRollbacks is the circuit breaker threshold (default:
+                      3).'
+                    type: integer
+                  schedule:
+                    description: 'Schedule is a cron expression for version checks
+                      (default: "0 3 * * *").'
+                    type: string
+                  versionConstraint:
+                    description: VersionConstraint is a semver constraint (e.g., "~1.x",
+                      "^2.0.0").
+                    type: string
+                required:
+                - enabled
+                type: object
               availability:
                 description: Availability configures PDB and other availability settings.
                 properties:
@@ -524,6 +557,7 @@ spec:
                 - nanoclaw
                 - zeroclaw
                 - picoclaw
+                - ironclaw
                 - custom
                 type: string
               security:
@@ -590,6 +624,61 @@ spec:
           status:
             description: ClawStatus defines the observed state of a Claw.
             properties:
+              autoUpdate:
+                description: AutoUpdate reports auto-update state.
+                properties:
+                  availableVersion:
+                    description: AvailableVersion is the latest version found in the
+                      registry.
+                    type: string
+                  circuitOpen:
+                    description: CircuitOpen is true when rollbackCount >= maxRollbacks.
+                    type: boolean
+                  currentVersion:
+                    description: CurrentVersion is the currently running image tag.
+                    type: string
+                  failedVersions:
+                    description: FailedVersions are versions that failed health checks
+                      and will be skipped.
+                    items:
+                      type: string
+                    type: array
+                  lastCheck:
+                    description: LastCheck is when the registry was last queried.
+                    format: date-time
+                    type: string
+                  lastUpdate:
+                    description: LastUpdate is when the last update was applied.
+                    format: date-time
+                    type: string
+                  rollbackCount:
+                    description: RollbackCount is the number of consecutive rollbacks.
+                    type: integer
+                  versionHistory:
+                    description: VersionHistory records past update attempts.
+                    items:
+                      description: VersionHistoryEntry records a single update attempt.
+                      properties:
+                        appliedAt:
+                          description: AppliedAt is when the update was applied.
+                          format: date-time
+                          type: string
+                        status:
+                          description: Status is the outcome of this update attempt.
+                          enum:
+                          - Healthy
+                          - RolledBack
+                          type: string
+                        version:
+                          description: Version is the image tag.
+                          type: string
+                      required:
+                      - appliedAt
+                      - status
+                      - version
+                      type: object
+                    type: array
+                type: object
               channels:
                 description: Channels reports per-channel status.
                 items:

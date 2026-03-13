@@ -73,6 +73,7 @@ func main() {
 	registry.Register(clawv1alpha1.RuntimeNanoClaw, &clawruntime.NanoClawAdapter{})
 	registry.Register(clawv1alpha1.RuntimeZeroClaw, &clawruntime.ZeroClawAdapter{})
 	registry.Register(clawv1alpha1.RuntimePicoClaw, &clawruntime.PicoClawAdapter{})
+	registry.Register(clawv1alpha1.RuntimeIronClaw, &clawruntime.IronClawAdapter{})
 
 	// Register field indexers.
 	if err := controller.SetupChannelNameIndex(mgr); err != nil {

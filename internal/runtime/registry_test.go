@@ -72,6 +72,7 @@ func TestRegistry_MultipleRuntimes(t *testing.T) {
 		v1alpha1.RuntimeNanoClaw: &NanoClawAdapter{},
 		v1alpha1.RuntimeZeroClaw: &ZeroClawAdapter{},
 		v1alpha1.RuntimePicoClaw: &PicoClawAdapter{},
+		v1alpha1.RuntimeIronClaw: &IronClawAdapter{},
 	}
 
 	for rt, adapter := range adapters {

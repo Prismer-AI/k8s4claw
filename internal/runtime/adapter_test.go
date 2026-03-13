@@ -115,6 +115,26 @@ func allAdapterTests() []adapterTestCase {
 				initialDelay: 1, period: 3,
 			},
 		},
+		{
+			name:    "IronClaw",
+			adapter: &IronClawAdapter{},
+			runtime: v1alpha1.RuntimeIronClaw,
+
+			wantPort:      3001,
+			wantWorkspace: "/workspace",
+			wantEnvKey:    "IRONCLAW_MODE",
+			wantEnvValue:  "gateway",
+			wantShutdown:  30,
+
+			wantHealth: probeExpectation{
+				probeType: "http", path: "/health", port: 3001,
+				initialDelay: 15, period: 15,
+			},
+			wantReady: probeExpectation{
+				probeType: "http", path: "/ready", port: 3001,
+				initialDelay: 10, period: 10,
+			},
+		},
 	}
 }
 
@@ -276,17 +296,21 @@ func TestAdapter_ValidateUpdate(t *testing.T) {
 }
 
 // TestAdapter_ShutdownOrdering verifies shutdown seconds follow expected ordering:
-// PicoClaw < ZeroClaw < NanoClaw < OpenClaw
+// PicoClaw < ZeroClaw < NanoClaw < OpenClaw == IronClaw
 func TestAdapter_ShutdownOrdering(t *testing.T) {
 	t.Parallel()
 	pico := (&PicoClawAdapter{}).GracefulShutdownSeconds()
 	zero := (&ZeroClawAdapter{}).GracefulShutdownSeconds()
 	nano := (&NanoClawAdapter{}).GracefulShutdownSeconds()
 	open := (&OpenClawAdapter{}).GracefulShutdownSeconds()
+	iron := (&IronClawAdapter{}).GracefulShutdownSeconds()
 
 	if !(pico < zero && zero < nano && nano < open) {
 		t.Errorf("shutdown ordering violated: pico=%d, zero=%d, nano=%d, open=%d; want pico < zero < nano < open",
 			pico, zero, nano, open)
+	}
+	if !(nano < iron) {
+		t.Errorf("shutdown ordering violated: nano=%d, iron=%d; want nano < iron", nano, iron)
 	}
 }
 
