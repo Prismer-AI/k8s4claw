@@ -230,9 +230,9 @@ func TestClawReconciler_StatefulSetCreated(t *testing.T) {
 		t.Error("expected seccomp profile RuntimeDefault")
 	}
 
-	// Verify terminationGracePeriodSeconds = 30 + 10 = 40 for OpenClaw.
-	if sts.Spec.Template.Spec.TerminationGracePeriodSeconds == nil || *sts.Spec.Template.Spec.TerminationGracePeriodSeconds != 40 {
-		t.Errorf("expected terminationGracePeriodSeconds=40, got %v", sts.Spec.Template.Spec.TerminationGracePeriodSeconds)
+	// Verify terminationGracePeriodSeconds = 30 + 15 = 45 for OpenClaw.
+	if sts.Spec.Template.Spec.TerminationGracePeriodSeconds == nil || *sts.Spec.Template.Spec.TerminationGracePeriodSeconds != 45 {
+		t.Errorf("expected terminationGracePeriodSeconds=45, got %v", sts.Spec.Template.Spec.TerminationGracePeriodSeconds)
 	}
 
 	// Verify init container named "claw-init" exists.
