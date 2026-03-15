@@ -1,0 +1,47 @@
+image:
+  repository: ghcr.io/prismer-ai/k8s4claw
+  tag: ""  # defaults to Chart.appVersion
+  pullPolicy: IfNotPresent
+
+replicaCount: 1
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 256Mi
+
+serviceAccount:
+  create: true
+  name: ""  # auto-generated if empty
+  annotations: {}
+
+leaderElection:
+  enabled: true
+
+nativeSidecars:
+  enabled: true  # requires Kubernetes 1.28+
+
+webhook:
+  port: 9443
+  certManager:
+    enabled: true
+    issuerRef:
+      kind: Issuer
+      name: ""  # auto-created if empty
+  selfSigned:
+    enabled: false  # auto-enabled when certManager.enabled=false
+
+monitoring:
+  enabled: false
+  serviceMonitor:
+    interval: 30s
+    labels: {}
+  prometheusRule:
+    enabled: true
+
+nodeSelector: {}
+tolerations: []
+affinity: {}

@@ -1,0 +1,17 @@
+apiVersion: v2
+name: k8s4claw
+description: Kubernetes operator for managing Claw AI agent runtimes
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+kubeVersion: ">=1.28.0-0"
+home: https://github.com/Prismer-AI/k8s4claw
+maintainers:
+  - name: Prismer AI
+sources:
+  - https://github.com/Prismer-AI/k8s4claw
+keywords:
+  - kubernetes
+  - operator
+  - ai
+  - claw
