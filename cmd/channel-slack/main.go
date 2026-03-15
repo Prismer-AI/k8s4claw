@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"os"
@@ -15,6 +16,14 @@ import (
 
 	channel "github.com/Prismer-AI/k8s4claw/sdk/channel"
 )
+
+// channelClient abstracts the channel SDK client for testing.
+type channelClient interface {
+	Send(ctx context.Context, payload json.RawMessage) error
+	Receive(ctx context.Context) (<-chan *channel.InboundMessage, error)
+	BufferedCount() int
+	Close() error
+}
 
 func main() {
 	zapLog, err := zap.NewProduction()
@@ -48,17 +57,22 @@ func main() {
 
 	mode := os.Getenv("CHANNEL_MODE")
 
+	if err := run(ctx, cfg, client, mode, logger); err != nil {
+		logger.Error(err, "run failed")
+		os.Exit(1)
+	}
+}
+
+func run(ctx context.Context, cfg *slackConfig, client channelClient, mode string, logger logr.Logger) error {
 	// Socket Mode connection for inbound.
 	var smConn socketModeConn
 	if mode == "inbound" || mode == "bidirectional" {
 		if cfg.AppLevelToken == "" {
-			logger.Error(fmt.Errorf("SLACK_APP_TOKEN is required for inbound mode"), "missing app-level token")
-			os.Exit(1)
+			return fmt.Errorf("SLACK_APP_TOKEN is required for inbound mode")
 		}
 		sm := newSlackSocketMode(cfg.AppLevelToken, cfg.SlackAPIURL)
 		if err := sm.Connect(ctx); err != nil {
-			logger.Error(err, "failed to connect Socket Mode")
-			os.Exit(1)
+			return fmt.Errorf("failed to connect Socket Mode: %w", err)
 		}
 		defer sm.Close()
 		smConn = sm
@@ -71,8 +85,7 @@ func main() {
 		poster := newSlackPoster(cfg)
 		inCh, err := client.Receive(ctx)
 		if err != nil {
-			logger.Error(err, "failed to start receiving")
-			os.Exit(1)
+			return fmt.Errorf("failed to start receiving: %w", err)
 		}
 		go runOutboundLoop(ctx, inCh, poster, logger)
 	}
@@ -98,9 +111,9 @@ func main() {
 
 	logger.Info("slack sidecar starting", "addr", addr, "mode", mode)
 	if err := srv.ListenAndServe(); err != http.ErrServerClosed {
-		logger.Error(err, "HTTP server error")
-		os.Exit(1)
+		return fmt.Errorf("HTTP server error: %w", err)
 	}
+	return nil
 }
 
 func runOutboundLoop(ctx context.Context, ch <-chan *channel.InboundMessage, poster *slackPoster, logger logr.Logger) {

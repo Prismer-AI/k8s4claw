@@ -12,7 +12,10 @@ type coderWSConn struct {
 	conn *websocket.Conn
 }
 
-func dialWebSocket(ctx context.Context, url string) (wsConn, error) {
+// dialWebSocket is a package-level var to allow test injection.
+var dialWebSocket = defaultDialWebSocket
+
+func defaultDialWebSocket(ctx context.Context, url string) (wsConn, error) {
 	conn, _, err := websocket.Dial(ctx, url, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to dial WebSocket at %s: %w", url, err)
