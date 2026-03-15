@@ -1,0 +1,87 @@
+{{- if and .Values.monitoring.enabled .Values.monitoring.prometheusRule.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: {{ include "k8s4claw.fullname" . }}-alerts
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "k8s4claw.labels" . | nindent 4 }}
+    {{- with .Values.monitoring.serviceMonitor.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  groups:
+    - name: k8s4claw.rules
+      rules:
+        - alert: ClawReconcileErrors
+          expr: rate(claw_reconcile_total{result="error"}[5m]) > 0
+          for: 5m
+          labels:
+            severity: warning
+            service: k8s4claw
+          annotations:
+            summary: "Claw reconcile errors detected"
+
+        - alert: ClawInstanceDegraded
+          expr: claw_instance_phase{phase=~"Failed|Degraded"} == 1
+          for: 2m
+          labels:
+            severity: critical
+            service: k8s4claw
+          annotations:
+            summary: "Claw instance {{ "{{" }} $labels.instance {{ "}}" }} in {{ "{{" }} $labels.phase {{ "}}" }} state"
+
+        - alert: ClawSlowReconciliation
+          expr: histogram_quantile(0.99, rate(claw_reconcile_duration_seconds_bucket[10m])) > 30
+          for: 10m
+          labels:
+            severity: warning
+            service: k8s4claw
+          annotations:
+            summary: "Claw reconcile P99 latency above 30s"
+
+        - alert: ClawPodCrashLooping
+          expr: increase(kube_pod_container_status_restarts_total{container=~"claw-.*"}[10m]) > 2
+          for: 0m
+          labels:
+            severity: critical
+            service: k8s4claw
+          annotations:
+            summary: "Claw pod {{ "{{" }} $labels.pod {{ "}}" }} crash looping"
+
+        - alert: ClawPodOOMKilled
+          expr: kube_pod_container_status_last_terminated_reason{reason="OOMKilled", container=~"claw-.*"} == 1
+          for: 0m
+          labels:
+            severity: warning
+            service: k8s4claw
+          annotations:
+            summary: "Claw pod {{ "{{" }} $labels.pod {{ "}}" }} OOM killed"
+
+        - alert: ClawPVCNearlyFull
+          expr: kubelet_volume_stats_used_bytes{persistentvolumeclaim=~"claw-.*"} / kubelet_volume_stats_capacity_bytes{persistentvolumeclaim=~"claw-.*"} > 0.85
+          for: 5m
+          labels:
+            severity: warning
+            service: k8s4claw
+          annotations:
+            summary: "Claw PVC {{ "{{" }} $labels.persistentvolumeclaim {{ "}}" }} above 85%"
+
+        - alert: ClawDLQBacklog
+          expr: claw_ipcbus_dlq_size > 100
+          for: 5m
+          labels:
+            severity: warning
+            service: k8s4claw
+          annotations:
+            summary: "IPC Bus DLQ has {{ "{{" }} $value {{ "}}" }} pending entries"
+
+        - alert: ClawChannelDisconnected
+          expr: claw_ipcbus_sidecar_connections == 0 and claw_ipcbus_bridge_connected == 1
+          for: 5m
+          labels:
+            severity: warning
+            service: k8s4claw
+          annotations:
+            summary: "No channel sidecars connected to IPC Bus"
+{{- end }}
