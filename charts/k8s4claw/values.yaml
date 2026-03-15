@@ -1,3 +1,6 @@
+nameOverride: ""
+fullnameOverride: ""
+
 image:
   repository: ghcr.io/prismer-ai/k8s4claw
   tag: ""  # defaults to Chart.appVersion

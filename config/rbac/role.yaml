@@ -35,12 +35,12 @@ rules:
 
   # CRDs
   - apiGroups: ["claw.prismer.ai"]
-    resources: [claws, claws/status, clawchannels, clawchannels/status]
+    resources: [claws, claws/status, clawchannels, clawchannels/status, clawselfconfigs, clawselfconfigs/status]
     verbs: [get, list, watch, create, update, patch, delete]
 
   # CRD finalizer subresources (scoped to update only)
   - apiGroups: ["claw.prismer.ai"]
-    resources: [claws/finalizers, clawchannels/finalizers]
+    resources: [claws/finalizers, clawchannels/finalizers, clawselfconfigs/finalizers]
     verbs: [update]
 
   # ExternalSecrets (optional, for external-secrets-operator integration)
