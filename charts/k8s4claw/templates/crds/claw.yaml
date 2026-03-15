@@ -1,0 +1,868 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.20.1
+    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook-weight": "-5"
+    "helm.sh/resource-policy": keep
+  name: claws.claw.prismer.ai
+  labels:
+    {{- include "k8s4claw.labels" . | nindent 4 }}
+spec:
+  group: claw.prismer.ai
+  names:
+    kind: Claw
+    listKind: ClawList
+    plural: claws
+    singular: claw
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .spec.runtime
+      name: Runtime
+      type: string
+    - jsonPath: .status.phase
+      name: Phase
+      type: string
+    - jsonPath: .status.autoUpdate.currentVersion
+      name: Version
+      priority: 1
+      type: string
+    - jsonPath: .status.autoUpdate.circuitOpen
+      name: Circuit
+      priority: 1
+      type: boolean
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: Claw is the Schema for the claws API.
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: ClawSpec defines the desired state of a Claw agent instance.
+            properties:
+              autoUpdate:
+                description: AutoUpdate configures automatic version updates.
+                properties:
+                  enabled:
+                    description: Enabled controls whether auto-update is active.
+                    type: boolean
+                  healthTimeout:
+                    description: 'HealthTimeout is how long to wait for Pod readiness
+                      after update (default: "10m", range: 2m-30m).'
+                    type: string
+                  maxRollbacks:
+                    description: 'MaxRollbacks is the circuit breaker threshold (default:
+                      3).'
+                    type: integer
+                  schedule:
+                    description: 'Schedule is a cron expression for version checks
+                      (default: "0 3 * * *").'
+                    type: string
+                  versionConstraint:
+                    description: VersionConstraint is a semver constraint (e.g., "~1.x",
+                      "^2.0.0").
+                    type: string
+                required:
+                - enabled
+                type: object
+              availability:
+                description: Availability configures PDB and other availability settings.
+                properties:
+                  pdb:
+                    description: PDB configures PodDisruptionBudget.
+                    properties:
+                      enabled:
+                        default: true
+                        description: 'Enabled controls whether a PDB is created. Default:
+                          true.'
+                        type: boolean
+                      minAvailable:
+                        default: 1
+                        description: 'MinAvailable is the minimum number of available
+                          pods. Default: 1.'
+                        type: integer
+                    required:
+                    - enabled
+                    type: object
+                type: object
+              channels:
+                description: Channels references ClawChannel resources for external
+                  communication.
+                items:
+                  description: ChannelRef references a ClawChannel with a communication
+                    mode.
+                  properties:
+                    mode:
+                      default: bidirectional
+                      description: Mode defines the communication direction.
+                      enum:
+                      - inbound
+                      - outbound
+                      - bidirectional
+                      type: string
+                    name:
+                      description: Name is the ClawChannel resource name.
+                      type: string
+                  required:
+                  - name
+                  type: object
+                type: array
+              config:
+                description: Config holds runtime-specific configuration.
+                x-kubernetes-preserve-unknown-fields: true
+              credentials:
+                description: Credentials defines how API keys and tokens are provided.
+                properties:
+                  externalSecret:
+                    description: |-
+                      ExternalSecret creates an ExternalSecret CR (requires external-secrets-operator).
+                      Mutually exclusive with SecretRef.
+                    properties:
+                      path:
+                        description: Path is the secret path within the provider.
+                        type: string
+                      provider:
+                        description: Provider is the external secret provider (e.g.,
+                          vault, aws, gcp).
+                        type: string
+                      refreshInterval:
+                        description: RefreshInterval is how often to sync the secret.
+                        type: string
+                      store:
+                        description: Store references a ClusterSecretStore or SecretStore
+                          name.
+                        type: string
+                    required:
+                    - path
+                    - provider
+                    - store
+                    type: object
+                  keys:
+                    description: Keys provides fine-grained per-key mappings that
+                      override the base Secret.
+                    items:
+                      description: KeyMapping maps a single environment variable to
+                        a specific Secret key.
+                      properties:
+                        name:
+                          description: Name is the environment variable name.
+                          type: string
+                        secretKeyRef:
+                          description: SecretKeyRef references a key within a K8s
+                            Secret.
+                          properties:
+                            key:
+                              description: The key of the secret to select from.  Must
+                                be a valid secret key.
+                              type: string
+                            name:
+                              default: ""
+                              description: |-
+                                Name of the referent.
+                                This field is effectively required, but due to backwards compatibility is
+                                allowed to be empty. Instances of this type with an empty value here are
+                                almost certainly wrong.
+                                More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                              type: string
+                            optional:
+                              description: Specify whether the Secret or its key must
+                                be defined
+                              type: boolean
+                          required:
+                          - key
+                          type: object
+                          x-kubernetes-map-type: atomic
+                      required:
+                      - name
+                      - secretKeyRef
+                      type: object
+                    type: array
+                  secretRef:
+                    description: |-
+                      SecretRef references a K8s Secret containing all required credentials.
+                      Mutually exclusive with ExternalSecret.
+                    properties:
+                      name:
+                        default: ""
+                        description: |-
+                          Name of the referent.
+                          This field is effectively required, but due to backwards compatibility is
+                          allowed to be empty. Instances of this type with an empty value here are
+                          almost certainly wrong.
+                          More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                        type: string
+                    type: object
+                    x-kubernetes-map-type: atomic
+                type: object
+              ingress:
+                description: Ingress configures external HTTP access.
+                properties:
+                  annotations:
+                    additionalProperties:
+                      type: string
+                    description: Annotations are additional annotations to add to
+                      the Ingress.
+                    type: object
+                  basicAuth:
+                    description: BasicAuth configures optional HTTP Basic Authentication.
+                    properties:
+                      enabled:
+                        description: Enabled controls whether basic auth is active.
+                        type: boolean
+                      secretName:
+                        description: SecretName references a Secret containing htpasswd
+                          data.
+                        type: string
+                    required:
+                    - enabled
+                    - secretName
+                    type: object
+                  className:
+                    description: ClassName is the IngressClass name (e.g., "nginx").
+                    type: string
+                  enabled:
+                    description: Enabled controls whether an Ingress is created.
+                    type: boolean
+                  host:
+                    description: Host is the FQDN for the Ingress rule.
+                    type: string
+                  tls:
+                    description: TLS configures TLS termination.
+                    properties:
+                      secretName:
+                        description: SecretName is the TLS Secret name.
+                        type: string
+                    required:
+                    - secretName
+                    type: object
+                required:
+                - enabled
+                - host
+                type: object
+              observability:
+                description: Observability configures monitoring.
+                properties:
+                  logs:
+                    default: true
+                    description: Logs enables structured logging collection.
+                    type: boolean
+                  metrics:
+                    default: true
+                    description: Metrics enables Prometheus metrics endpoint.
+                    type: boolean
+                  tracing:
+                    default: false
+                    description: Tracing enables OpenTelemetry tracing.
+                    type: boolean
+                type: object
+              persistence:
+                description: Persistence configures storage volumes.
+                properties:
+                  cache:
+                    description: Cache for model embeddings and indexes (ephemeral).
+                    properties:
+                      enabled:
+                        default: true
+                        description: Enabled controls whether cache volume is created.
+                        type: boolean
+                      medium:
+                        default: Memory
+                        description: Medium is the emptyDir medium ("" for disk, "Memory"
+                          for tmpfs).
+                        type: string
+                      mountPath:
+                        description: MountPath inside the container.
+                        type: string
+                      size:
+                        description: Size limit for the cache.
+                        type: string
+                    required:
+                    - mountPath
+                    - size
+                    type: object
+                  output:
+                    description: Output storage for artifacts (papers, code, notebooks).
+                    properties:
+                      archive:
+                        description: Archive configuration for S3-compatible object
+                          storage.
+                        properties:
+                          destination:
+                            description: Destination is the object storage target.
+                            properties:
+                              bucket:
+                                description: Bucket name.
+                                type: string
+                              prefix:
+                                description: 'Prefix is the key prefix (supports Go
+                                  template: {{.Namespace}}/{{.Name}}/).'
+                                type: string
+                              secretRef:
+                                description: SecretRef references credentials for
+                                  the object store.
+                                properties:
+                                  name:
+                                    default: ""
+                                    description: |-
+                                      Name of the referent.
+                                      This field is effectively required, but due to backwards compatibility is
+                                      allowed to be empty. Instances of this type with an empty value here are
+                                      almost certainly wrong.
+                                      More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                                    type: string
+                                type: object
+                                x-kubernetes-map-type: atomic
+                              type:
+                                description: Type is the S3-compatible storage backend
+                                  (s3, minio, gcs-s3-interop, r2).
+                                type: string
+                            required:
+                            - bucket
+                            - secretRef
+                            - type
+                            type: object
+                          enabled:
+                            description: Enabled controls whether archival is active.
+                            type: boolean
+                          lifecycle:
+                            description: Lifecycle controls retention policies.
+                            properties:
+                              archiveRetention:
+                                description: ArchiveRetention is how long to keep
+                                  files in object storage (e.g., "365d").
+                                type: string
+                              compress:
+                                default: true
+                                description: Compress enables gzip compression for
+                                  archived files.
+                                type: boolean
+                              localRetention:
+                                description: |-
+                                  LocalRetention is how long to keep files locally after archival (e.g., "7d").
+                                  Files are only deleted locally after confirmed archived.
+                                type: string
+                            type: object
+                          trigger:
+                            description: Trigger controls when archival happens.
+                            properties:
+                              inotify:
+                                default: true
+                                description: |-
+                                  Inotify enables filesystem event-based archival as an optimization.
+                                  Falls back to periodic scan if inotify is not supported.
+                                type: boolean
+                              schedule:
+                                description: Schedule is a cron expression for periodic
+                                  archival scans (primary mechanism).
+                                type: string
+                            required:
+                            - schedule
+                            type: object
+                        required:
+                        - destination
+                        - enabled
+                        - trigger
+                        type: object
+                      enabled:
+                        default: true
+                        description: Enabled controls whether this volume is provisioned.
+                        type: boolean
+                      maxSize:
+                        description: MaxSize is the auto-expansion ceiling (e.g.,
+                          "20Gi").
+                        type: string
+                      mountPath:
+                        description: MountPath inside the container.
+                        type: string
+                      size:
+                        description: Size is the initial PVC size (e.g., "2Gi").
+                        type: string
+                      snapshot:
+                        description: Snapshot configuration for CSI VolumeSnapshot.
+                        properties:
+                          enabled:
+                            description: Enabled controls whether snapshots are taken.
+                            type: boolean
+                          retain:
+                            default: 5
+                            description: Retain is the number of snapshots to keep.
+                            type: integer
+                          schedule:
+                            description: Schedule is a cron expression for snapshot
+                              frequency.
+                            type: string
+                          volumeSnapshotClass:
+                            description: VolumeSnapshotClass to use. Required if enabled.
+                            type: string
+                        required:
+                        - enabled
+                        - schedule
+                        type: object
+                      storageClass:
+                        description: StorageClass for the PVC. Uses cluster default
+                          if empty.
+                        type: string
+                    required:
+                    - mountPath
+                    - size
+                    type: object
+                  reclaimPolicy:
+                    default: Retain
+                    description: ReclaimPolicy controls PVC behavior on Claw deletion.
+                    enum:
+                    - Retain
+                    - Archive
+                    - Delete
+                    type: string
+                  session:
+                    description: Session storage for conversation history and context.
+                    properties:
+                      enabled:
+                        default: true
+                        description: Enabled controls whether this volume is provisioned.
+                        type: boolean
+                      maxSize:
+                        description: MaxSize is the auto-expansion ceiling (e.g.,
+                          "20Gi").
+                        type: string
+                      mountPath:
+                        description: MountPath inside the container.
+                        type: string
+                      size:
+                        description: Size is the initial PVC size (e.g., "2Gi").
+                        type: string
+                      snapshot:
+                        description: Snapshot configuration for CSI VolumeSnapshot.
+                        properties:
+                          enabled:
+                            description: Enabled controls whether snapshots are taken.
+                            type: boolean
+                          retain:
+                            default: 5
+                            description: Retain is the number of snapshots to keep.
+                            type: integer
+                          schedule:
+                            description: Schedule is a cron expression for snapshot
+                              frequency.
+                            type: string
+                          volumeSnapshotClass:
+                            description: VolumeSnapshotClass to use. Required if enabled.
+                            type: string
+                        required:
+                        - enabled
+                        - schedule
+                        type: object
+                      storageClass:
+                        description: StorageClass for the PVC. Uses cluster default
+                          if empty.
+                        type: string
+                    required:
+                    - mountPath
+                    - size
+                    type: object
+                  shared:
+                    description: Shared volumes mounted from pre-existing PVCs.
+                    items:
+                      description: SharedVolumeRef references a pre-existing PVC for
+                        shared data.
+                      properties:
+                        claimName:
+                          description: ClaimName is the PVC name to mount.
+                          type: string
+                        mountPath:
+                          description: MountPath inside the container.
+                          type: string
+                        name:
+                          description: Name is a descriptive name for this shared
+                            volume.
+                          type: string
+                        readOnly:
+                          default: false
+                          description: ReadOnly mounts the volume as read-only.
+                          type: boolean
+                      required:
+                      - claimName
+                      - mountPath
+                      - name
+                      type: object
+                    type: array
+                  workspace:
+                    description: Workspace storage for working files.
+                    properties:
+                      enabled:
+                        default: true
+                        description: Enabled controls whether this volume is provisioned.
+                        type: boolean
+                      maxSize:
+                        description: MaxSize is the auto-expansion ceiling (e.g.,
+                          "20Gi").
+                        type: string
+                      mountPath:
+                        description: MountPath inside the container.
+                        type: string
+                      size:
+                        description: Size is the initial PVC size (e.g., "2Gi").
+                        type: string
+                      snapshot:
+                        description: Snapshot configuration for CSI VolumeSnapshot.
+                        properties:
+                          enabled:
+                            description: Enabled controls whether snapshots are taken.
+                            type: boolean
+                          retain:
+                            default: 5
+                            description: Retain is the number of snapshots to keep.
+                            type: integer
+                          schedule:
+                            description: Schedule is a cron expression for snapshot
+                              frequency.
+                            type: string
+                          volumeSnapshotClass:
+                            description: VolumeSnapshotClass to use. Required if enabled.
+                            type: string
+                        required:
+                        - enabled
+                        - schedule
+                        type: object
+                      storageClass:
+                        description: StorageClass for the PVC. Uses cluster default
+                          if empty.
+                        type: string
+                    required:
+                    - mountPath
+                    - size
+                    type: object
+                type: object
+              runtime:
+                description: Runtime is the agent runtime type. Immutable after creation.
+                enum:
+                - openclaw
+                - nanoclaw
+                - zeroclaw
+                - picoclaw
+                - ironclaw
+                - custom
+                type: string
+              security:
+                description: Security configures network policies.
+                properties:
+                  networkPolicy:
+                    description: NetworkPolicy controls per-instance NetworkPolicy
+                      creation.
+                    properties:
+                      allowedEgressCIDRs:
+                        description: AllowedEgressCIDRs are additional CIDR blocks
+                          allowed for egress.
+                        items:
+                          type: string
+                        type: array
+                      allowedIngressNamespaces:
+                        description: AllowedIngressNamespaces are namespaces allowed
+                          to access this Claw.
+                        items:
+                          type: string
+                        type: array
+                      enabled:
+                        default: true
+                        description: 'Enabled controls whether a NetworkPolicy is
+                          created. Default: true.'
+                        type: boolean
+                    required:
+                    - enabled
+                    type: object
+                type: object
+              selfConfigure:
+                description: SelfConfigure enables agent self-configuration.
+                properties:
+                  allowedActions:
+                    description: |-
+                      AllowedActions lists which action categories are permitted.
+                      Valid values: "skills", "config", "workspaceFiles", "envVars".
+                    items:
+                      type: string
+                    type: array
+                  enabled:
+                    description: Enabled allows the agent to create ClawSelfConfig
+                      resources.
+                    type: boolean
+                required:
+                - enabled
+                type: object
+              serviceAccount:
+                description: ServiceAccount overrides the default restricted ServiceAccount.
+                properties:
+                  annotations:
+                    additionalProperties:
+                      type: string
+                    description: Annotations to apply to the ServiceAccount (e.g.,
+                      for IRSA or Workload Identity).
+                    type: object
+                  name:
+                    description: Name of a user-managed ServiceAccount.
+                    type: string
+                type: object
+            required:
+            - runtime
+            type: object
+          status:
+            description: ClawStatus defines the observed state of a Claw.
+            properties:
+              autoUpdate:
+                description: AutoUpdate reports auto-update state.
+                properties:
+                  availableVersion:
+                    description: AvailableVersion is the latest version found in the
+                      registry.
+                    type: string
+                  circuitOpen:
+                    description: CircuitOpen is true when rollbackCount >= maxRollbacks.
+                    type: boolean
+                  currentVersion:
+                    description: CurrentVersion is the currently running image tag.
+                    type: string
+                  failedVersions:
+                    description: FailedVersions are versions that failed health checks
+                      and will be skipped.
+                    items:
+                      type: string
+                    type: array
+                  lastCheck:
+                    description: LastCheck is when the registry was last queried.
+                    format: date-time
+                    type: string
+                  lastUpdate:
+                    description: LastUpdate is when the last update was applied.
+                    format: date-time
+                    type: string
+                  rollbackCount:
+                    description: RollbackCount is the number of consecutive rollbacks.
+                    type: integer
+                  versionHistory:
+                    description: VersionHistory records past update attempts.
+                    items:
+                      description: VersionHistoryEntry records a single update attempt.
+                      properties:
+                        appliedAt:
+                          description: AppliedAt is when the update was applied.
+                          format: date-time
+                          type: string
+                        status:
+                          description: Status is the outcome of this update attempt.
+                          enum:
+                          - Healthy
+                          - RolledBack
+                          type: string
+                        version:
+                          description: Version is the image tag.
+                          type: string
+                      required:
+                      - appliedAt
+                      - status
+                      - version
+                      type: object
+                    type: array
+                type: object
+              channels:
+                description: Channels reports per-channel status.
+                items:
+                  description: ChannelStatus reports the status of a connected channel.
+                  properties:
+                    backpressure:
+                      description: Backpressure is the current pressure state.
+                      type: string
+                    deadLetterCount:
+                      description: DeadLetterCount is the number of messages in the
+                        DLQ for this channel.
+                      type: integer
+                    lastError:
+                      description: LastError is the most recent error message.
+                      type: string
+                    name:
+                      description: Name of the ClawChannel.
+                      type: string
+                    retryCount:
+                      description: RetryCount is the current retry attempt number.
+                      type: integer
+                    status:
+                      description: Status is the connection state.
+                      type: string
+                  required:
+                  - name
+                  - status
+                  type: object
+                type: array
+              conditions:
+                description: Conditions represent the latest available observations
+                  of the Claw's state.
+                items:
+                  description: Condition contains details for one aspect of the current
+                    state of this API Resource.
+                  properties:
+                    lastTransitionTime:
+                      description: |-
+                        lastTransitionTime is the last time the condition transitioned from one status to another.
+                        This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                      format: date-time
+                      type: string
+                    message:
+                      description: |-
+                        message is a human readable message indicating details about the transition.
+                        This may be an empty string.
+                      maxLength: 32768
+                      type: string
+                    observedGeneration:
+                      description: |-
+                        observedGeneration represents the .metadata.generation that the condition was set based upon.
+                        For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                        with respect to the current state of the instance.
+                      format: int64
+                      minimum: 0
+                      type: integer
+                    reason:
+                      description: |-
+                        reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                        Producers of specific condition types may define expected values and meanings for this field,
+                        and whether the values are considered a guaranteed API.
+                        The value should be a CamelCase string.
+                        This field may not be empty.
+                      maxLength: 1024
+                      minLength: 1
+                      pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                      type: string
+                    status:
+                      description: status of the condition, one of True, False, Unknown.
+                      enum:
+                      - "True"
+                      - "False"
+                      - Unknown
+                      type: string
+                    type:
+                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                      maxLength: 316
+                      pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - message
+                  - reason
+                  - status
+                  - type
+                  type: object
+                type: array
+              observedGeneration:
+                description: ObservedGeneration is the most recent generation observed
+                  by the controller.
+                format: int64
+                type: integer
+              persistence:
+                description: Persistence reports storage status.
+                properties:
+                  output:
+                    description: Output volume status.
+                    properties:
+                      archivedFiles:
+                        description: ArchivedFiles is the total number of archived
+                          files (output only).
+                        type: integer
+                      capacityBytes:
+                        description: CapacityBytes is the total capacity.
+                        format: int64
+                        type: integer
+                      lastSnapshot:
+                        description: LastSnapshot is the timestamp of the last successful
+                          snapshot.
+                        format: date-time
+                        type: string
+                      pvcName:
+                        description: PVCName is the PersistentVolumeClaim name.
+                        type: string
+                      usagePercent:
+                        description: UsagePercent is the current usage as a percentage.
+                        type: integer
+                    type: object
+                  session:
+                    description: Session volume status.
+                    properties:
+                      archivedFiles:
+                        description: ArchivedFiles is the total number of archived
+                          files (output only).
+                        type: integer
+                      capacityBytes:
+                        description: CapacityBytes is the total capacity.
+                        format: int64
+                        type: integer
+                      lastSnapshot:
+                        description: LastSnapshot is the timestamp of the last successful
+                          snapshot.
+                        format: date-time
+                        type: string
+                      pvcName:
+                        description: PVCName is the PersistentVolumeClaim name.
+                        type: string
+                      usagePercent:
+                        description: UsagePercent is the current usage as a percentage.
+                        type: integer
+                    type: object
+                  workspace:
+                    description: Workspace volume status.
+                    properties:
+                      archivedFiles:
+                        description: ArchivedFiles is the total number of archived
+                          files (output only).
+                        type: integer
+                      capacityBytes:
+                        description: CapacityBytes is the total capacity.
+                        format: int64
+                        type: integer
+                      lastSnapshot:
+                        description: LastSnapshot is the timestamp of the last successful
+                          snapshot.
+                        format: date-time
+                        type: string
+                      pvcName:
+                        description: PVCName is the PersistentVolumeClaim name.
+                        type: string
+                      usagePercent:
+                        description: UsagePercent is the current usage as a percentage.
+                        type: integer
+                    type: object
+                type: object
+              phase:
+                description: Phase is the high-level lifecycle phase.
+                enum:
+                - Pending
+                - Provisioning
+                - Running
+                - Degraded
+                - Updating
+                - Failed
+                - Terminating
+                type: string
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}

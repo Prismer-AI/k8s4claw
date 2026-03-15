@@ -1,0 +1,129 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.20.1
+    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook-weight": "-5"
+    "helm.sh/resource-policy": keep
+  name: clawselfconfigs.claw.prismer.ai
+  labels:
+    {{- include "k8s4claw.labels" . | nindent 4 }}
+spec:
+  group: claw.prismer.ai
+  names:
+    kind: ClawSelfConfig
+    listKind: ClawSelfConfigList
+    plural: clawselfconfigs
+    singular: clawselfconfig
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .spec.clawRef
+      name: Claw
+      type: string
+    - jsonPath: .status.phase
+      name: Phase
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: ClawSelfConfig allows AI agents to modify their own Claw configuration.
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: ClawSelfConfigSpec defines the desired self-configuration
+              changes.
+            properties:
+              addEnvVars:
+                description: AddEnvVars lists environment variables to add.
+                items:
+                  description: EnvVar represents an environment variable.
+                  properties:
+                    name:
+                      type: string
+                    value:
+                      type: string
+                  required:
+                  - name
+                  - value
+                  type: object
+                type: array
+              addSkills:
+                description: AddSkills lists skills to install (max 10).
+                items:
+                  type: string
+                type: array
+              addWorkspaceFiles:
+                additionalProperties:
+                  type: string
+                description: AddWorkspaceFiles maps file names to content to create
+                  in the workspace.
+                type: object
+              clawRef:
+                description: ClawRef is the name of the target Claw instance (required,
+                  same namespace).
+                type: string
+              configPatch:
+                additionalProperties:
+                  type: string
+                description: ConfigPatch is a partial config merge applied to the
+                  Claw runtime config.
+                type: object
+              removeEnvVars:
+                description: RemoveEnvVars lists environment variable names to remove.
+                items:
+                  type: string
+                type: array
+              removeSkills:
+                description: RemoveSkills lists skills to uninstall (max 10).
+                items:
+                  type: string
+                type: array
+              removeWorkspaceFiles:
+                description: RemoveWorkspaceFiles lists workspace files to delete.
+                items:
+                  type: string
+                type: array
+            required:
+            - clawRef
+            type: object
+          status:
+            description: ClawSelfConfigStatus defines the observed state of ClawSelfConfig.
+            properties:
+              appliedAt:
+                description: AppliedAt is the timestamp when the config was applied.
+                format: date-time
+                type: string
+              message:
+                description: Message provides human-readable detail.
+                type: string
+              phase:
+                description: Phase is the current phase.
+                type: string
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
