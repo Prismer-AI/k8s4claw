@@ -62,6 +62,20 @@ func TestBuffer_FIFO(t *testing.T) {
 	}
 }
 
+func TestBuffer_DefaultCapacity(t *testing.T) {
+	b := newBuffer(0)
+	if b.cap != 256 {
+		t.Fatalf("default cap = %d, want 256", b.cap)
+	}
+}
+
+func TestBuffer_NegativeCapacity(t *testing.T) {
+	b := newBuffer(-1)
+	if b.cap != 256 {
+		t.Fatalf("negative cap = %d, want 256", b.cap)
+	}
+}
+
 func TestBuffer_DrainAll(t *testing.T) {
 	b := newBuffer(4)
 	b.push(newMessage(typeMessage, "ch", nil))
