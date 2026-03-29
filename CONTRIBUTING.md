@@ -136,3 +136,7 @@ For built-in channels, add to `internal/channel/`. For custom channels, use the 
 
 - Open a [Discussion](https://github.com/Prismer-AI/k8s4claw/discussions)
 - Tag your issue with `question` for general questions
+
+## Development Setup
+
+See the [Local Development Setup Guide](docs/dev-setup.md) for instructions on setting up your environment.
