@@ -123,12 +123,14 @@ kind: Claw
 metadata:
   name: $name
   namespace: $ns
+  annotations:
+    claw.prismer.ai/image-pull-policy: "Never"
 spec:
   $spec
 EOF
 
     # Wait for reconciliation
-    sleep 3
+    sleep 5
 
     # Verify sub-resources
     local ok=true
@@ -144,6 +146,17 @@ EOF
 
     assert_container_port "$name" "$ns" "$port" || ok=false
     assert_configmap_valid_json "${name}-config" "$ns" || ok=false
+
+    # Wait for Pod Ready (mock runtime should start fast)
+    if kubectl wait --for=condition=ready "pod/${name}-0" -n "$ns" --timeout=60s &>/dev/null; then
+        echo -e "    ${GREEN}✓${NC} pod/${name}-0 Ready"
+    else
+        local pod_status
+        pod_status=$(kubectl get pod "${name}-0" -n "$ns" -o jsonpath='{.status.phase}' 2>/dev/null || echo "not found")
+        echo -e "    ${RED}✗${NC} pod/${name}-0 NOT Ready (status: $pod_status)"
+        kubectl describe pod "${name}-0" -n "$ns" 2>/dev/null | grep -A 3 'Warning\|Error\|Back-off\|ImagePull' | head -5
+        ok=false
+    fi
 
     # Check Claw status phase
     local phase
@@ -175,8 +188,50 @@ echo ""
 echo -e "${YELLOW}▸ Creating kind cluster...${NC}"
 kind create cluster --name "$CLUSTER_NAME" --wait 60s 2>&1 | tail -2
 
+echo -e "${YELLOW}▸ Building operator (to sync init image tag)...${NC}"
+make build 2>&1 | tail -1
+
+echo -e "${YELLOW}▸ Building and loading mock runtime image...${NC}"
+docker build -t claw-mock-runtime:dev -f runtimes/mock/Dockerfile runtimes/mock/ 2>&1 | tail -1
+
+# Detect init image tag — must match what `make build` baked in via ldflags
+VERSION=$(git describe --tags --always --dirty 2>/dev/null || echo dev)
+INIT_IMG="ghcr.io/prismer-ai/claw-init:${VERSION}"
+echo "  Init image: $INIT_IMG"
+
+# Tag mock image as each runtime's expected image and load into kind.
+# Use ":latest" tags (matching adapter defaults) + also ":v0" to avoid
+# imagePullPolicy=Always. We'll also import directly into containerd.
+RUNTIME_IMAGES=(
+    "ghcr.io/prismer-ai/k8s4claw-openclaw:latest"
+    "ghcr.io/prismer-ai/k8s4claw-nanoclaw:latest"
+    "ghcr.io/prismer-ai/k8s4claw-zeroclaw:latest"
+    "ghcr.io/prismer-ai/k8s4claw-picoclaw:latest"
+    "ghcr.io/prismer-ai/k8s4claw-ironclaw:latest"
+    "docker.io/nousresearch/hermes-agent:latest"
+    "ghcr.io/nousresearch/hermes-agent:latest"
+    "$INIT_IMG"
+)
+for img in "${RUNTIME_IMAGES[@]}"; do
+    docker tag claw-mock-runtime:dev "$img" 2>/dev/null
+done
+kind load docker-image "${RUNTIME_IMAGES[@]}" --name "$CLUSTER_NAME" 2>&1 | grep -c 'loading' | xargs -I{} echo "  Loaded {} images"
+
+# Workaround: :latest triggers imagePullPolicy=Always in K8s, causing
+# ErrImagePull even when the image is pre-loaded. Import directly into
+# the kind node's containerd so kubelet finds them without pulling.
+echo "  Importing images into containerd (bypass pull policy)..."
+NODE="${CLUSTER_NAME}-control-plane"
+docker save "${RUNTIME_IMAGES[@]}" | docker exec -i "$NODE" ctr -n k8s.io images import --no-unpack - 2>&1 | tail -1
+
 echo -e "${YELLOW}▸ Installing CRDs...${NC}"
 kubectl apply -f config/crd/bases/ &>/dev/null
+
+echo -e "${YELLOW}▸ Waiting for CRDs to be ready...${NC}"
+for crd in claws.claw.prismer.ai clawchannels.claw.prismer.ai clawselfconfigs.claw.prismer.ai; do
+    kubectl wait --for=condition=established "crd/$crd" --timeout=30s &>/dev/null
+done
+echo "  CRDs established"
 
 echo -e "${YELLOW}▸ Starting operator...${NC}"
 bin/operator --disable-webhooks \

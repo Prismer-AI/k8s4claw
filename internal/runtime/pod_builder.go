@@ -202,10 +202,13 @@ func buildInitContainer(claw *v1alpha1.Claw, spec *RuntimeSpec) corev1.Container
 		})
 	}
 
+	initPullPolicy := corev1.PullPolicy(claw.Annotations["claw.prismer.ai/image-pull-policy"])
+
 	return corev1.Container{
-		Name:    "claw-init",
-		Image:   InitContainerImage,
-		Command: []string{"/claw-init"},
+		Name:            "claw-init",
+		Image:           InitContainerImage,
+		ImagePullPolicy: initPullPolicy,
+		Command:         []string{"/claw-init"},
 		Args: []string{
 			"--mode", configMode,
 			"--workspace", workspacePath,
@@ -284,9 +287,13 @@ func buildRuntimeContainer(claw *v1alpha1.Claw, spec *RuntimeSpec) corev1.Contai
 		securityContext = ContainerSecurityContext()
 	}
 
+	// Allow overriding imagePullPolicy via annotation (useful for local dev / kind).
+	pullPolicy := corev1.PullPolicy(claw.Annotations["claw.prismer.ai/image-pull-policy"])
+
 	return corev1.Container{
 		Name:            "runtime",
 		Image:           spec.Image,
+		ImagePullPolicy: pullPolicy,
 		Command:         spec.Command,
 		Args:            spec.Args,
 		Ports:           spec.Ports,
