@@ -53,7 +53,7 @@ func (r *ClawReconciler) ensureConfigMap(ctx context.Context, claw *clawv1alpha1
 
 // buildConfigMap constructs the desired ConfigMap for the given Claw and adapter.
 func (r *ClawReconciler) buildConfigMap(claw *clawv1alpha1.Claw, adapter clawruntime.RuntimeAdapter) (*corev1.ConfigMap, error) {
-	defaultJSON, err := clawruntime.DefaultConfigJSON(adapter)
+	defaultJSON, err := defaultConfigJSON(claw, adapter)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get default config JSON: %w", err)
 	}
@@ -80,6 +80,13 @@ func (r *ClawReconciler) buildConfigMap(claw *clawv1alpha1.Claw, adapter clawrun
 			"config.json": merged,
 		},
 	}, nil
+}
+
+func defaultConfigJSON(claw *clawv1alpha1.Claw, adapter clawruntime.RuntimeAdapter) (string, error) {
+	if claw.Spec.Runtime == clawv1alpha1.RuntimeHermesClaw {
+		return "{}", nil
+	}
+	return clawruntime.DefaultConfigJSON(adapter)
 }
 
 // mergeConfig deep-merges user config over defaults. If userJSON is nil or

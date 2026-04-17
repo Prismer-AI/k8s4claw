@@ -138,6 +138,7 @@ func (v *ClawValidator) validateRuntime(ctx context.Context, obj *clawv1alpha1.C
 				string(clawv1alpha1.RuntimeZeroClaw),
 				string(clawv1alpha1.RuntimePicoClaw),
 				string(clawv1alpha1.RuntimeIronClaw),
+				string(clawv1alpha1.RuntimeHermesClaw),
 			}),
 		}
 	}

@@ -18,6 +18,7 @@ func newRegistry() *clawruntime.Registry {
 	reg.Register(clawv1alpha1.RuntimeZeroClaw, &clawruntime.ZeroClawAdapter{})
 	reg.Register(clawv1alpha1.RuntimePicoClaw, &clawruntime.PicoClawAdapter{})
 	reg.Register(clawv1alpha1.RuntimeIronClaw, &clawruntime.IronClawAdapter{})
+	reg.Register(clawv1alpha1.RuntimeHermesClaw, &clawruntime.HermesClawAdapter{})
 	return reg
 }
 
@@ -153,6 +154,21 @@ func TestValidateCreate_RuntimeAdapterValidation(t *testing.T) {
 	}
 	if len(warnings) > 0 {
 		t.Fatalf("expected no warnings, got %v", warnings)
+	}
+}
+
+func TestValidateCreate_HermesClawRejectsChannels(t *testing.T) {
+	v := &ClawValidator{Registry: newRegistry()}
+	claw := baseClaw()
+	claw.Spec.Runtime = clawv1alpha1.RuntimeHermesClaw
+	claw.Spec.Channels = []clawv1alpha1.ChannelRef{{Name: "slack-team"}}
+
+	_, err := v.ValidateCreate(context.Background(), claw)
+	if err == nil {
+		t.Fatal("expected error for HermesClaw channels, got nil")
+	}
+	if !containsFieldError(err.Error(), "channels") {
+		t.Fatalf("error should mention channels: %v", err)
 	}
 }
 

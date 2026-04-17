@@ -38,6 +38,7 @@ type RuntimeSpec struct {
 	ReadinessProbe    *corev1.Probe
 	ConfigMode        ConfigMergeMode
 	WorkspacePath     string
+	SecurityContext   *corev1.SecurityContext
 }
 
 // ---------------------------------------------------------------------------
@@ -278,6 +279,11 @@ func buildRuntimeContainer(claw *v1alpha1.Claw, spec *RuntimeSpec) corev1.Contai
 	// Adapter-specific extra mounts.
 	mounts = append(mounts, spec.ExtraVolumeMounts...)
 
+	securityContext := spec.SecurityContext
+	if securityContext == nil {
+		securityContext = ContainerSecurityContext()
+	}
+
 	return corev1.Container{
 		Name:            "runtime",
 		Image:           spec.Image,
@@ -289,7 +295,7 @@ func buildRuntimeContainer(claw *v1alpha1.Claw, spec *RuntimeSpec) corev1.Contai
 		Resources:       spec.Resources,
 		LivenessProbe:   spec.LivenessProbe,
 		ReadinessProbe:  spec.ReadinessProbe,
-		SecurityContext: ContainerSecurityContext(),
+		SecurityContext: securityContext,
 		Lifecycle: &corev1.Lifecycle{
 			PreStop: &corev1.LifecycleHandler{
 				Exec: &corev1.ExecAction{
@@ -307,11 +313,15 @@ func buildRuntimeContainer(claw *v1alpha1.Claw, spec *RuntimeSpec) corev1.Contai
 // ContainerSecurityContext returns the hardened security context applied to
 // every container in a Claw pod.
 func ContainerSecurityContext() *corev1.SecurityContext {
+	return containerSecurityContext(true)
+}
+
+func containerSecurityContext(readOnlyRoot bool) *corev1.SecurityContext {
 	return &corev1.SecurityContext{
 		RunAsUser:                ptr.To(int64(1000)),
 		RunAsGroup:               ptr.To(int64(1000)),
 		RunAsNonRoot:             ptr.To(true),
-		ReadOnlyRootFilesystem:   ptr.To(true),
+		ReadOnlyRootFilesystem:   ptr.To(readOnlyRoot),
 		AllowPrivilegeEscalation: ptr.To(false),
 		Capabilities: &corev1.Capabilities{
 			Drop: []corev1.Capability{"ALL"},

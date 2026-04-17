@@ -68,6 +68,7 @@ func TestMain(m *testing.M) {
 	registry.Register(clawv1alpha1.RuntimeZeroClaw, &clawruntime.ZeroClawAdapter{})
 	registry.Register(clawv1alpha1.RuntimePicoClaw, &clawruntime.PicoClawAdapter{})
 	registry.Register(clawv1alpha1.RuntimeIronClaw, &clawruntime.IronClawAdapter{})
+	registry.Register(clawv1alpha1.RuntimeHermesClaw, &clawruntime.HermesClawAdapter{})
 
 	// Configure webhook server using envtest-assigned host/port/certs.
 	webhookInstallOptions := &testEnv.WebhookInstallOptions

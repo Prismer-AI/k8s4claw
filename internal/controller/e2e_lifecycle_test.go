@@ -226,6 +226,7 @@ func TestE2E_MultiRuntime(t *testing.T) {
 		{clawv1alpha1.RuntimeZeroClaw, "ghcr.io/prismer-ai/k8s4claw-zeroclaw:latest", 3000, false},
 		{clawv1alpha1.RuntimePicoClaw, "ghcr.io/prismer-ai/k8s4claw-picoclaw:latest", 8080, false},
 		{clawv1alpha1.RuntimeIronClaw, "ghcr.io/prismer-ai/k8s4claw-ironclaw:latest", 3001, true},
+		{clawv1alpha1.RuntimeHermesClaw, "ghcr.io/nousresearch/hermes-agent:latest", 8642, true},
 	}
 
 	for _, tt := range tests {
@@ -242,6 +243,11 @@ func TestE2E_MultiRuntime(t *testing.T) {
 			claw := &clawv1alpha1.Claw{
 				ObjectMeta: metav1.ObjectMeta{Name: nn.Name, Namespace: ns},
 				Spec:       spec,
+			}
+			if tt.runtime == clawv1alpha1.RuntimeHermesClaw {
+				claw.Annotations = map[string]string{
+					annotationTargetImage: tt.wantImage,
+				}
 			}
 			if err := k8sClient.Create(ctx, claw); err != nil {
 				t.Fatalf("failed to create Claw: %v", err)

@@ -1,0 +1,22 @@
+apiVersion: claw.prismer.ai/v1alpha1
+kind: Claw
+metadata:
+  name: hermes-assistant
+spec:
+  runtime: hermesclaw
+  config:
+    model:
+      default: "nous-hermes-3"
+  credentials:
+    secretRef:
+      name: hermes-api-keys
+  persistence:
+    reclaimPolicy: Retain
+    session:
+      enabled: true
+      size: 5Gi
+      mountPath: /opt/data
+    workspace:
+      enabled: true
+      size: 20Gi
+      mountPath: /opt/data/skills

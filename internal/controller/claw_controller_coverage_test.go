@@ -567,10 +567,13 @@ func TestClawReconciler_AllRuntimes(t *testing.T) {
 		gatewayPort int32
 		image       string
 		gracePeriod int64
+		needsCreds  bool
+		emptyConfig bool
 	}{
-		{clawv1alpha1.RuntimeNanoClaw, 19000, "ghcr.io/prismer-ai/k8s4claw-nanoclaw:latest", 30},
-		{clawv1alpha1.RuntimeZeroClaw, 3000, "ghcr.io/prismer-ai/k8s4claw-zeroclaw:latest", 20},
-		{clawv1alpha1.RuntimePicoClaw, 8080, "ghcr.io/prismer-ai/k8s4claw-picoclaw:latest", 17},
+		{clawv1alpha1.RuntimeNanoClaw, 19000, "ghcr.io/prismer-ai/k8s4claw-nanoclaw:latest", 30, false, false},
+		{clawv1alpha1.RuntimeZeroClaw, 3000, "ghcr.io/prismer-ai/k8s4claw-zeroclaw:latest", 20, false, false},
+		{clawv1alpha1.RuntimePicoClaw, 8080, "ghcr.io/prismer-ai/k8s4claw-picoclaw:latest", 17, false, false},
+		{clawv1alpha1.RuntimeHermesClaw, 8642, "ghcr.io/nousresearch/hermes-agent:latest", 75, true, true},
 	}
 
 	for _, rt := range runtimes {
@@ -587,6 +590,15 @@ func TestClawReconciler_AllRuntimes(t *testing.T) {
 				Spec: clawv1alpha1.ClawSpec{
 					Runtime: rt.name,
 				},
+			}
+			if rt.needsCreds {
+				ensureTestSecret(t, ns)
+				claw.Spec.Credentials = testCredentials()
+			}
+			if rt.name == clawv1alpha1.RuntimeHermesClaw {
+				claw.Annotations = map[string]string{
+					annotationTargetImage: rt.image,
+				}
 			}
 			if err := k8sClient.Create(ctx, claw); err != nil {
 				t.Fatalf("failed to create Claw: %v", err)
@@ -651,7 +663,11 @@ func TestClawReconciler_AllRuntimes(t *testing.T) {
 			if err := json.Unmarshal([]byte(cm.Data["config.json"]), &parsed); err != nil {
 				t.Fatalf("config.json is not valid JSON: %v", err)
 			}
-			if gp, ok := parsed["gatewayPort"]; !ok || int(gp.(float64)) != int(rt.gatewayPort) {
+			if rt.emptyConfig {
+				if len(parsed) != 0 {
+					t.Errorf("expected empty Hermes config defaults, got %v", parsed)
+				}
+			} else if gp, ok := parsed["gatewayPort"]; !ok || int(gp.(float64)) != int(rt.gatewayPort) {
 				t.Errorf("expected gatewayPort=%d, got %v", rt.gatewayPort, parsed["gatewayPort"])
 			}
 		})
@@ -1425,6 +1441,7 @@ func newFakeReconciler(c client.Client) *ClawReconciler {
 	registry.Register(clawv1alpha1.RuntimeNanoClaw, &clawruntime.NanoClawAdapter{})
 	registry.Register(clawv1alpha1.RuntimeZeroClaw, &clawruntime.ZeroClawAdapter{})
 	registry.Register(clawv1alpha1.RuntimePicoClaw, &clawruntime.PicoClawAdapter{})
+	registry.Register(clawv1alpha1.RuntimeHermesClaw, &clawruntime.HermesClawAdapter{})
 	return &ClawReconciler{
 		Client:                c,
 		Scheme:                scheme.Scheme,
@@ -2511,6 +2528,7 @@ func incompleteSchemeReconciler(c client.Client) *ClawReconciler {
 
 	registry := clawruntime.NewRegistry()
 	registry.Register(clawv1alpha1.RuntimeOpenClaw, &clawruntime.OpenClawAdapter{})
+	registry.Register(clawv1alpha1.RuntimeHermesClaw, &clawruntime.HermesClawAdapter{})
 	return &ClawReconciler{
 		Client:                c,
 		Scheme:                incompleteScheme,
@@ -2600,6 +2618,53 @@ func TestBuildConfigMap_MergeConfigError(t *testing.T) {
 	}
 	if !containsSubstring(err.Error(), "merge config") {
 		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+func TestBuildConfigMap_HermesClawUsesUserConfigOnly(t *testing.T) {
+	fakeClient := fake.NewClientBuilder().WithScheme(scheme.Scheme).Build()
+	r := newFakeReconciler(fakeClient)
+	adapter, _ := r.Registry.Get(clawv1alpha1.RuntimeHermesClaw)
+
+	claw := &clawv1alpha1.Claw{
+		ObjectMeta: metav1.ObjectMeta{Name: "test-hermes-config", Namespace: "default"},
+		Spec: clawv1alpha1.ClawSpec{
+			Runtime: clawv1alpha1.RuntimeHermesClaw,
+			Config: &apiextensionsv1.JSON{
+				Raw: []byte(`{"model":{"default":"nous-hermes-3"},"learningEnabled":true}`),
+			},
+		},
+	}
+
+	cm, err := r.buildConfigMap(claw, adapter)
+	if err != nil {
+		t.Fatalf("buildConfigMap: %v", err)
+	}
+
+	var parsed map[string]interface{}
+	if err := json.Unmarshal([]byte(cm.Data["config.json"]), &parsed); err != nil {
+		t.Fatalf("config.json is not valid JSON: %v", err)
+	}
+
+	if _, ok := parsed["gatewayPort"]; ok {
+		t.Fatalf("expected Hermes config to omit gatewayPort defaults, got %v", parsed["gatewayPort"])
+	}
+	if _, ok := parsed["workspacePath"]; ok {
+		t.Fatalf("expected Hermes config to omit workspacePath defaults, got %v", parsed["workspacePath"])
+	}
+	if _, ok := parsed["environment"]; ok {
+		t.Fatalf("expected Hermes config to omit environment defaults, got %v", parsed["environment"])
+	}
+	if parsed["learningEnabled"] != true {
+		t.Fatalf("expected learningEnabled=true, got %v", parsed["learningEnabled"])
+	}
+
+	model, ok := parsed["model"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("expected model object, got %T", parsed["model"])
+	}
+	if model["default"] != "nous-hermes-3" {
+		t.Fatalf("expected model.default=nous-hermes-3, got %v", model["default"])
 	}
 }
 

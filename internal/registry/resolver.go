@@ -271,6 +271,8 @@ func ImageForRuntime(runtime string) string {
 		return "ghcr.io/prismer-ai/k8s4claw-picoclaw"
 	case "ironclaw":
 		return "ghcr.io/prismer-ai/k8s4claw-ironclaw"
+	case "hermesclaw":
+		return "ghcr.io/nousresearch/hermes-agent"
 	default:
 		return ""
 	}

@@ -170,6 +170,7 @@ func TestImageForRuntime(t *testing.T) {
 		{"zeroclaw", "ghcr.io/prismer-ai/k8s4claw-zeroclaw"},
 		{"picoclaw", "ghcr.io/prismer-ai/k8s4claw-picoclaw"},
 		{"ironclaw", "ghcr.io/prismer-ai/k8s4claw-ironclaw"},
+		{"hermesclaw", "ghcr.io/nousresearch/hermes-agent"},
 		{"unknown", ""},
 		{"", ""},
 	}

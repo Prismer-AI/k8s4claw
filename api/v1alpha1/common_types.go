@@ -6,17 +6,18 @@ import (
 )
 
 // RuntimeType defines the type of Claw runtime.
-// +kubebuilder:validation:Enum=openclaw;nanoclaw;zeroclaw;picoclaw;ironclaw;custom
+// +kubebuilder:validation:Enum=openclaw;nanoclaw;zeroclaw;picoclaw;ironclaw;hermesclaw;custom
 type RuntimeType string
 
 // RuntimeType constants.
 const (
-	RuntimeOpenClaw RuntimeType = "openclaw"
-	RuntimeNanoClaw RuntimeType = "nanoclaw"
-	RuntimeZeroClaw RuntimeType = "zeroclaw"
-	RuntimePicoClaw RuntimeType = "picoclaw"
-	RuntimeIronClaw RuntimeType = "ironclaw"
-	RuntimeCustom   RuntimeType = "custom"
+	RuntimeOpenClaw   RuntimeType = "openclaw"
+	RuntimeNanoClaw   RuntimeType = "nanoclaw"
+	RuntimeZeroClaw   RuntimeType = "zeroclaw"
+	RuntimePicoClaw   RuntimeType = "picoclaw"
+	RuntimeIronClaw   RuntimeType = "ironclaw"
+	RuntimeHermesClaw RuntimeType = "hermesclaw"
+	RuntimeCustom     RuntimeType = "custom"
 )
 
 // ReclaimPolicy defines what happens to PVCs when a Claw is deleted.

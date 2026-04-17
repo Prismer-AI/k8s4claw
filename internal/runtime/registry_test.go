@@ -68,11 +68,12 @@ func TestRegistry_MultipleRuntimes(t *testing.T) {
 	r := NewRegistry()
 
 	adapters := map[v1alpha1.RuntimeType]RuntimeAdapter{
-		v1alpha1.RuntimeOpenClaw: &OpenClawAdapter{},
-		v1alpha1.RuntimeNanoClaw: &NanoClawAdapter{},
-		v1alpha1.RuntimeZeroClaw: &ZeroClawAdapter{},
-		v1alpha1.RuntimePicoClaw: &PicoClawAdapter{},
-		v1alpha1.RuntimeIronClaw: &IronClawAdapter{},
+		v1alpha1.RuntimeOpenClaw:   &OpenClawAdapter{},
+		v1alpha1.RuntimeNanoClaw:   &NanoClawAdapter{},
+		v1alpha1.RuntimeZeroClaw:   &ZeroClawAdapter{},
+		v1alpha1.RuntimePicoClaw:   &PicoClawAdapter{},
+		v1alpha1.RuntimeIronClaw:   &IronClawAdapter{},
+		v1alpha1.RuntimeHermesClaw: &HermesClawAdapter{},
 	}
 
 	for rt, adapter := range adapters {

@@ -563,6 +563,7 @@ spec:
                 - zeroclaw
                 - picoclaw
                 - ironclaw
+                - hermesclaw
                 - custom
                 type: string
               security:

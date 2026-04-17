@@ -135,6 +135,26 @@ func allAdapterTests() []adapterTestCase {
 				initialDelay: 10, period: 10,
 			},
 		},
+		{
+			name:    "HermesClaw",
+			adapter: &HermesClawAdapter{},
+			runtime: v1alpha1.RuntimeHermesClaw,
+
+			wantPort:      8642,
+			wantWorkspace: "/opt/data/skills",
+			wantEnvKey:    "HERMES_HOME",
+			wantEnvValue:  "/opt/data",
+			wantShutdown:  60,
+
+			wantHealth: probeExpectation{
+				probeType: "http", path: "/health", port: 8642,
+				initialDelay: 20, period: 15,
+			},
+			wantReady: probeExpectation{
+				probeType: "http", path: "/health", port: 8642,
+				initialDelay: 10, period: 10,
+			},
+		},
 	}
 }
 
