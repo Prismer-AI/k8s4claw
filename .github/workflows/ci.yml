@@ -99,7 +99,7 @@ jobs:
           go-version-file: go.mod
           cache: true
       - name: Install controller-gen
-        run: go install sigs.k8s.io/controller-tools/cmd/controller-gen@v0.17.2
+        run: go install sigs.k8s.io/controller-tools/cmd/controller-gen@v0.20.1
       - name: Verify generated files are up to date
         run: |
           make generate

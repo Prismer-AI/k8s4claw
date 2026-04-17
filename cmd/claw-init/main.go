@@ -16,7 +16,7 @@ func main() {
 
 	// Ensure destination directories exist.
 	for _, dir := range []string{configDst, workspacePath} {
-		if err := os.MkdirAll(dir, 0o755); err != nil {
+		if err := os.MkdirAll(dir, 0o750); err != nil {
 			fmt.Fprintf(os.Stderr, "failed to create directory %s: %v\n", dir, err)
 			os.Exit(1)
 		}
@@ -36,11 +36,11 @@ func main() {
 }
 
 func mergeConfig(srcPath, dstPath string) error {
-	srcData, err := os.ReadFile(srcPath)
+	srcData, err := os.ReadFile(srcPath) //nolint:gosec // G304: path is from trusted env var, not user input
 	if err != nil {
 		if os.IsNotExist(err) {
 			fmt.Printf("claw-init: no source config at %s, writing empty config\n", srcPath)
-			return os.WriteFile(dstPath, []byte("{}"), 0o644)
+			return os.WriteFile(dstPath, []byte("{}"), 0o600)
 		}
 		return fmt.Errorf("failed to read source config: %w", err)
 	}
@@ -57,7 +57,7 @@ func mergeConfig(srcPath, dstPath string) error {
 		return fmt.Errorf("failed to marshal config: %w", err)
 	}
 
-	if err := os.WriteFile(dstPath, pretty, 0o644); err != nil {
+	if err := os.WriteFile(dstPath, pretty, 0o600); err != nil {
 		return fmt.Errorf("failed to write config: %w", err)
 	}
 
