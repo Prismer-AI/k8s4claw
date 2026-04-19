@@ -20,6 +20,9 @@ build: ## Build operator binary.
 build-ipcbus: ## Build IPC Bus binary.
 	go build -o bin/ipcbus ./cmd/ipcbus/
 
+build-claw4k8s: ## Build claw4k8s companion binary.
+	go build -o bin/claw4k8s ./cmd/claw4k8s/
+
 run: ## Run operator locally against the configured cluster.
 	go run ./cmd/operator/
 
