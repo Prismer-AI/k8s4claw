@@ -6,7 +6,7 @@ import (
 )
 
 // RuntimeType defines the type of Claw runtime.
-// +kubebuilder:validation:Enum=openclaw;nanoclaw;zeroclaw;picoclaw;ironclaw;hermesclaw;custom
+// +kubebuilder:validation:Enum=openclaw;nanoclaw;zeroclaw;picoclaw;ironclaw;hermesclaw;k8sops;custom
 type RuntimeType string
 
 // RuntimeType constants.
@@ -17,7 +17,54 @@ const (
 	RuntimePicoClaw   RuntimeType = "picoclaw"
 	RuntimeIronClaw   RuntimeType = "ironclaw"
 	RuntimeHermesClaw RuntimeType = "hermesclaw"
+	RuntimeK8sOps     RuntimeType = "k8sops"
 	RuntimeCustom     RuntimeType = "custom"
+)
+
+// Severity represents the urgency level of an escalation.
+// +kubebuilder:validation:Enum=Critical;High;Medium;Low
+type Severity string
+
+// Severity constants.
+const (
+	SeverityCritical Severity = "Critical"
+	SeverityHigh     Severity = "High"
+	SeverityMedium   Severity = "Medium"
+	SeverityLow      Severity = "Low"
+)
+
+// SeverityRank returns a numeric rank for a Severity (higher = more urgent).
+// Returns 0 for unknown severities.
+func SeverityRank(s Severity) int {
+	switch s {
+	case SeverityCritical:
+		return 4
+	case SeverityHigh:
+		return 3
+	case SeverityMedium:
+		return 2
+	case SeverityLow:
+		return 1
+	default:
+		return 0
+	}
+}
+
+// TriggerType identifies the Kubernetes event that initiated an escalation.
+// +kubebuilder:validation:Enum=OOMKilled;CrashLoop;HighCPU;HighMemory;PodPending;ProbeFailure;ChannelDisconnect;Evicted;Unknown
+type TriggerType string
+
+// TriggerType constants.
+const (
+	TriggerOOMKilled         TriggerType = "OOMKilled"
+	TriggerCrashLoop         TriggerType = "CrashLoop"
+	TriggerHighCPU           TriggerType = "HighCPU"
+	TriggerHighMemory        TriggerType = "HighMemory"
+	TriggerPodPending        TriggerType = "PodPending"
+	TriggerProbeFailure      TriggerType = "ProbeFailure"
+	TriggerChannelDisconnect TriggerType = "ChannelDisconnect"
+	TriggerEvicted           TriggerType = "Evicted"
+	TriggerUnknown           TriggerType = "Unknown"
 )
 
 // ReclaimPolicy defines what happens to PVCs when a Claw is deleted.
