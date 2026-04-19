@@ -78,6 +78,13 @@ func (r *ClawReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 		return ctrl.Result{}, fmt.Errorf("failed to ensure finalizer: %w", err)
 	}
 
+	// Consume ops intent annotation (claw4k8s auto-remediation).
+	// This must happen before sub-resource reconciliation so that intent-driven
+	// changes (e.g., bump-memory) are applied before the StatefulSet is reconciled.
+	if err := r.consumeAndExecuteOpsIntent(ctx, &claw); err != nil {
+		return ctrl.Result{}, fmt.Errorf("failed to consume ops intent: %w", err)
+	}
+
 	// Ensure headless Service exists and is up to date.
 	if err := r.ensureService(ctx, &claw, adapter); err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to ensure Service: %w", err)

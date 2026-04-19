@@ -18,7 +18,7 @@ type OpsIntent struct {
 	Params        map[string]string `json:"params"`
 	Generation    int64             `json:"generation"`
 	Source        string            `json:"source"`
-	EscalationRef string           `json:"escalationRef,omitempty"`
+	EscalationRef string            `json:"escalationRef,omitempty"`
 }
 
 // allowedIntentActions is the whitelist of allowed intent actions.
