@@ -22,7 +22,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
 	clawv1alpha1 "github.com/Prismer-AI/k8s4claw/api/v1alpha1"
+	"github.com/Prismer-AI/k8s4claw/internal/rules"
 	clawruntime "github.com/Prismer-AI/k8s4claw/internal/runtime"
+	"github.com/Prismer-AI/k8s4claw/internal/signet"
 	clawwebhook "github.com/Prismer-AI/k8s4claw/internal/webhook"
 )
 
@@ -69,6 +71,7 @@ func TestMain(m *testing.M) {
 	registry.Register(clawv1alpha1.RuntimePicoClaw, &clawruntime.PicoClawAdapter{})
 	registry.Register(clawv1alpha1.RuntimeIronClaw, &clawruntime.IronClawAdapter{})
 	registry.Register(clawv1alpha1.RuntimeHermesClaw, &clawruntime.HermesClawAdapter{})
+	registry.Register(clawv1alpha1.RuntimeK8sOps, &clawruntime.K8sOpsAdapter{})
 
 	// Configure webhook server using envtest-assigned host/port/certs.
 	webhookInstallOptions := &testEnv.WebhookInstallOptions
@@ -117,6 +120,20 @@ func TestMain(m *testing.M) {
 		Scheme: mgr.GetScheme(),
 	}).SetupWithManager(mgr); err != nil {
 		panic("failed to set up ClawSelfConfigReconciler: " + err.Error())
+	}
+
+	// Set up the ClawOpsController.
+	clawOpsCtrl := &ClawOpsController{
+		Client:     mgr.GetClient(),
+		Scheme:     mgr.GetScheme(),
+		RuleEngine: rules.NewEngine(rules.DefaultRules),
+		Signer:     signet.NewMockSigner(),
+		Recorder:   mgr.GetEventRecorderFor("clawops-controller"),
+		Config:     DefaultClawOpsConfig(),
+	}
+	clawOpsCtrl.InitActionCounts()
+	if err := clawOpsCtrl.SetupWithManager(mgr); err != nil {
+		panic("failed to set up ClawOpsController: " + err.Error())
 	}
 
 	// Register admission webhooks.
