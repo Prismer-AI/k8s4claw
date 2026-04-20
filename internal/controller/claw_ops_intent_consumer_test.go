@@ -1,7 +1,6 @@
 package controller
 
 import (
-	"encoding/json"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -154,6 +153,65 @@ func TestClearOpsIntentAnnotations(t *testing.T) {
 	assert.Equal(t, "keep-me", claw.Annotations["some-other-key"])
 }
 
+func TestClearOpsIntentAnnotations_NeverLowersGen(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name         string
+		existingGen  string
+		processedGen int64
+		wantGen      string
+	}{
+		{"processed > existing: advance", "10", 20, "20"},
+		{"processed == existing: keep", "10", 10, "10"},
+		{"processed < existing: keep (replay protection)", "100", 5, "100"},
+		{"processed=0 (invalid intent path) must NOT reset", "100", 0, "100"},
+		{"no existing gen: write processed", "", 7, "7"},
+		{"no existing gen + processed=0: no write", "", 0, ""},
+		{"malformed existing gen: treated as 0, advance", "abc", 5, "5"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			anns := map[string]string{
+				AnnotationOpsIntent: `{"action":"bump-memory","generation":1}`,
+			}
+			if tt.existingGen != "" {
+				anns[AnnotationOpsIntentGen] = tt.existingGen
+			}
+			claw := &clawv1alpha1.Claw{
+				ObjectMeta: metav1.ObjectMeta{Annotations: anns},
+			}
+			clearOpsIntentAnnotations(claw, tt.processedGen)
+			assert.NotContains(t, claw.Annotations, AnnotationOpsIntent,
+				"intent annotation must always be cleared")
+			got := claw.Annotations[AnnotationOpsIntentGen]
+			assert.Equal(t, tt.wantGen, got)
+		})
+	}
+}
+
+func TestCurrentIntentGen(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name string
+		anns map[string]string
+		want int64
+	}{
+		{"nil annotations", nil, 0},
+		{"no gen key", map[string]string{"other": "1"}, 0},
+		{"valid gen", map[string]string{AnnotationOpsIntentGen: "42"}, 42},
+		{"malformed gen", map[string]string{AnnotationOpsIntentGen: "abc"}, 0},
+		{"zero gen", map[string]string{AnnotationOpsIntentGen: "0"}, 0},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			claw := &clawv1alpha1.Claw{ObjectMeta: metav1.ObjectMeta{Annotations: tt.anns}}
+			assert.Equal(t, tt.want, currentIntentGen(claw))
+		})
+	}
+}
+
 // ---------------------------------------------------------------------------
 // buildIntentPatch — validate patch output per action
 // ---------------------------------------------------------------------------
@@ -273,21 +331,4 @@ func TestBuildIntentPatch_ScaleReplicas_MissingParam(t *testing.T) {
 	patch, err := buildIntentPatch(intent)
 	assert.Error(t, err)
 	assert.Nil(t, patch)
-}
-
-// ---------------------------------------------------------------------------
-// intentPatchToAnnotation — serialization roundtrip
-// ---------------------------------------------------------------------------
-
-func TestIntentPatchToAnnotation_RolloutRestart(t *testing.T) {
-	t.Parallel()
-	patch := &IntentPatch{Action: "rollout-restart"}
-	ann := patch.RestartAnnotation()
-	assert.NotEmpty(t, ann, "rollout-restart should produce a non-empty restart annotation value")
-
-	// Verify it's a valid JSON with a timestamp.
-	var m map[string]string
-	err := json.Unmarshal([]byte(ann), &m)
-	require.NoError(t, err)
-	assert.Contains(t, m, "restartedAt")
 }

@@ -357,6 +357,9 @@ func (r *ClawReconciler) buildStatefulSet(ctx context.Context, claw *clawv1alpha
 	labels := clawLabels(claw)
 
 	replicas := int32(1)
+	if claw.Spec.Replicas != nil {
+		replicas = *claw.Spec.Replicas
+	}
 
 	podTemplate := adapter.PodTemplate(claw)
 
@@ -369,6 +372,12 @@ func (r *ClawReconciler) buildStatefulSet(ctx context.Context, claw *clawv1alpha
 			}
 		}
 	}
+
+	// Apply spec.resources overrides to the runtime container. This is how
+	// claw4k8s intent actions (bump-memory, bump-cpu) persist across reconciles:
+	// the intent handler mutates claw.Spec.Resources, and the adapter-rebuilt
+	// pod template picks the overrides up here.
+	applyResourceOverrides(claw, podTemplate)
 
 	// Apply labels to the pod template.
 	if podTemplate.Labels == nil {

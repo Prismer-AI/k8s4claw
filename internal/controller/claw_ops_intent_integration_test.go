@@ -123,15 +123,29 @@ func TestOpsIntentIntegration_BumpMemory(t *testing.T) {
 	_, hasIntent := postClaw.Annotations[AnnotationOpsIntent]
 	assert.False(t, hasIntent, "intent annotation should be cleared after consumption")
 
-	// Log post-intent memory (may revert due to ensureStatefulSet overwrite — expected).
-	var postSTS appsv1.StatefulSet
-	require.NoError(t, k8sClient.Get(ctx, nn, &postSTS))
-	for _, c := range postSTS.Spec.Template.Spec.Containers {
-		if c.Name == "runtime" {
-			t.Logf("post-intent memory limit: %s", c.Resources.Limits.Memory().String())
-			break
+	// Verify spec.resources was updated (this is how the change survives
+	// ensureStatefulSet rebuild).
+	require.NotNil(t, postClaw.Spec.Resources, "spec.resources must be set after bump-memory")
+	require.NotNil(t, postClaw.Spec.Resources.Limits, "spec.resources.limits must be set")
+	assert.Equal(t, resource.MustParse("2Gi"),
+		postClaw.Spec.Resources.Limits[corev1.ResourceMemory],
+		"bump-memory must write to claw.Spec.Resources.Limits")
+
+	// Verify the StatefulSet picked up the new memory limit (regression test
+	// for the ensureStatefulSet overwrite bug).
+	waitForCondition(t, 15*time.Second, 200*time.Millisecond, func() (bool, error) {
+		var postSTS appsv1.StatefulSet
+		if err := k8sClient.Get(ctx, nn, &postSTS); err != nil {
+			return false, err
 		}
-	}
+		for _, c := range postSTS.Spec.Template.Spec.Containers {
+			if c.Name == "runtime" {
+				lim := c.Resources.Limits[corev1.ResourceMemory]
+				return lim.Equal(resource.MustParse("2Gi")), nil
+			}
+		}
+		return false, nil
+	})
 }
 
 // ---------------------------------------------------------------------------
@@ -264,23 +278,77 @@ func TestOpsIntentIntegration_InvalidIntentCleared(t *testing.T) {
 	latest.Annotations[AnnotationOpsIntent] = `{"action":"delete-namespace","params":{},"generation":1,"source":"attacker"}`
 	require.NoError(t, k8sClient.Patch(ctx, &latest, patch))
 
-	// For invalid intents, clearIntentAnnotation is called with processedGen=0,
-	// so ops-intent-gen will be "0". Wait for that.
+	// Invalid intents clear the annotation without lowering the replay-protection
+	// high-water mark. Since no prior intent has been processed, gen is either
+	// absent or preserved at its prior value. Either way, the intent annotation
+	// must disappear.
 	waitForCondition(t, 15*time.Second, 200*time.Millisecond, func() (bool, error) {
 		var fetched clawv1alpha1.Claw
 		if err := k8sClient.Get(ctx, nn, &fetched); err != nil {
 			return false, err
 		}
-		// Intent should be cleared.
 		_, hasIntent := fetched.Annotations[AnnotationOpsIntent]
-		if hasIntent {
-			return false, nil
-		}
-		// Gen should be "0" (invalid intent clears with gen=0).
-		return fetched.Annotations[AnnotationOpsIntentGen] == "0", nil
+		return !hasIntent, nil
 	})
 
 	t.Log("invalid intent was correctly cleared by the reconciler")
+}
+
+// ---------------------------------------------------------------------------
+// Integration test: invalid intent does NOT lower the generation counter
+// ---------------------------------------------------------------------------
+
+func TestOpsIntentIntegration_InvalidIntentPreservesGeneration(t *testing.T) {
+	ns := fmt.Sprintf("test-intent-replay-%d", time.Now().UnixNano())
+	createNamespace(t, ns)
+	ensureTestSecret(t, ns)
+
+	clawName := "intent-replay-guard"
+	claw := &clawv1alpha1.Claw{
+		ObjectMeta: metav1.ObjectMeta{Name: clawName, Namespace: ns},
+		Spec: clawv1alpha1.ClawSpec{
+			Runtime:     clawv1alpha1.RuntimeOpenClaw,
+			Credentials: testCredentials(),
+		},
+	}
+	require.NoError(t, k8sClient.Create(ctx, claw))
+
+	nn := types.NamespacedName{Name: clawName, Namespace: ns}
+	waitForSTS(t, nn)
+
+	// Establish high-water mark at gen=500 via a valid rollout-restart intent.
+	writeIntentAnnotation(t, nn, OpsIntent{
+		Action:     "rollout-restart",
+		Params:     map[string]string{},
+		Generation: 500,
+		Source:     "rule-engine",
+	})
+	waitForIntentGen(t, nn, "500")
+
+	// Now write an invalid intent. Before the fix this reset gen to "0"; after
+	// the fix it must preserve "500".
+	var latest clawv1alpha1.Claw
+	require.NoError(t, k8sClient.Get(ctx, nn, &latest))
+	p := client.MergeFrom(latest.DeepCopy())
+	latest.Annotations[AnnotationOpsIntent] = `{"action":"delete-namespace","params":{},"generation":999,"source":"attacker"}`
+	require.NoError(t, k8sClient.Patch(ctx, &latest, p))
+
+	// Wait for invalid intent to be cleared.
+	waitForCondition(t, 15*time.Second, 200*time.Millisecond, func() (bool, error) {
+		var fetched clawv1alpha1.Claw
+		if err := k8sClient.Get(ctx, nn, &fetched); err != nil {
+			return false, err
+		}
+		_, hasIntent := fetched.Annotations[AnnotationOpsIntent]
+		return !hasIntent, nil
+	})
+
+	// Gen must still be 500, not lowered to 0 or raised to 999 (attacker gen
+	// should never be trusted).
+	var postClaw clawv1alpha1.Claw
+	require.NoError(t, k8sClient.Get(ctx, nn, &postClaw))
+	assert.Equal(t, "500", postClaw.Annotations[AnnotationOpsIntentGen],
+		"invalid intent must not alter the replay-protection high-water mark")
 }
 
 // ---------------------------------------------------------------------------
@@ -324,4 +392,69 @@ func TestOpsIntentIntegration_ScaleReplicas(t *testing.T) {
 	require.NoError(t, k8sClient.Get(ctx, nn, &postClaw))
 	_, hasIntent := postClaw.Annotations[AnnotationOpsIntent]
 	assert.False(t, hasIntent, "intent annotation should be cleared")
+
+	// Verify spec.replicas was updated (regression test: before the fix,
+	// ensureStatefulSet reset replicas to hardcoded 1).
+	require.NotNil(t, postClaw.Spec.Replicas, "spec.replicas must be set by scale-replicas")
+	assert.Equal(t, int32(3), *postClaw.Spec.Replicas)
+
+	// Verify the StatefulSet picked up replicas=3.
+	waitForCondition(t, 15*time.Second, 200*time.Millisecond, func() (bool, error) {
+		var postSTS appsv1.StatefulSet
+		if err := k8sClient.Get(ctx, nn, &postSTS); err != nil {
+			return false, err
+		}
+		return postSTS.Spec.Replicas != nil && *postSTS.Spec.Replicas == 3, nil
+	})
+}
+
+// ---------------------------------------------------------------------------
+// Integration test: rollout-restart annotation survives ensureStatefulSet
+// rebuild (regression test for intent-patch overwrite bug)
+// ---------------------------------------------------------------------------
+
+func TestOpsIntentIntegration_RolloutRestartSurvivesRebuild(t *testing.T) {
+	ns := fmt.Sprintf("test-intent-restart-rebuild-%d", time.Now().UnixNano())
+	createNamespace(t, ns)
+	ensureTestSecret(t, ns)
+
+	clawName := "intent-restart-rebuild"
+	claw := &clawv1alpha1.Claw{
+		ObjectMeta: metav1.ObjectMeta{Name: clawName, Namespace: ns},
+		Spec: clawv1alpha1.ClawSpec{
+			Runtime:     clawv1alpha1.RuntimeOpenClaw,
+			Credentials: testCredentials(),
+		},
+	}
+	require.NoError(t, k8sClient.Create(ctx, claw))
+
+	nn := types.NamespacedName{Name: clawName, Namespace: ns}
+	waitForSTS(t, nn)
+
+	writeIntentAnnotation(t, nn, OpsIntent{
+		Action:     "rollout-restart",
+		Params:     map[string]string{},
+		Generation: 42,
+		Source:     "rule-engine",
+	})
+	waitForIntentGen(t, nn, "42")
+
+	// The Claw annotation should hold the restart timestamp, and the STS pod
+	// template should reflect it (ensureStatefulSet applies it via
+	// applyResourceOverrides on every reconcile).
+	waitForCondition(t, 15*time.Second, 200*time.Millisecond, func() (bool, error) {
+		var postClaw clawv1alpha1.Claw
+		if err := k8sClient.Get(ctx, nn, &postClaw); err != nil {
+			return false, err
+		}
+		if postClaw.Annotations[AnnotationRestartedAt] == "" {
+			return false, nil
+		}
+		var postSTS appsv1.StatefulSet
+		if err := k8sClient.Get(ctx, nn, &postSTS); err != nil {
+			return false, err
+		}
+		return postSTS.Spec.Template.Annotations[AnnotationRestartedAt] ==
+			postClaw.Annotations[AnnotationRestartedAt], nil
+	})
 }
