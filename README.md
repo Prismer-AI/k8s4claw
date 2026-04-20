@@ -6,9 +6,11 @@
 [![License](https://img.shields.io/github/license/Prismer-AI/k8s4claw)](LICENSE)
 [![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/Prismer-AI/k8s4claw?quickstart=1)
 
-**Kubernetes operator for managing heterogeneous AI agent runtimes.** One CRD, any runtime, production-ready from day one.
+**Kubernetes operator where AI agents manage their own infrastructure.** One CRD, any runtime, self-healing from day one.
 
-k8s4claw lets you deploy, connect, and operate AI agents on Kubernetes the same way you manage any other workload — declaratively, with built-in persistence, auto-updates, and inter-agent communication.
+k8s4claw lets you deploy, connect, and operate AI agents on Kubernetes the same way you manage any other workload — declaratively, with built-in persistence, auto-updates, inter-agent communication, and **[claw4k8s](docs/plans/2026-04-19-claw4k8s-design.md): an autonomous ops layer that lets agents heal themselves**.
+
+> 🆕 **claw4k8s** — When an agent OOMs at 2am, no human gets paged. The operator detects the crash, matches a rule, writes a signed intent annotation, and the reconciler applies the fix. Unknown issues? A Companion Claw (LLM agent) analyzes, proposes, and routes to human approval via Slack. Every action Ed25519-signed for audit. [See the comparison →](docs/marketing/comparison.md)
 
 <p align="center">
   <a href="docs/demo-k8s.cast">
