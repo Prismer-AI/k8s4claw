@@ -13,11 +13,9 @@ k8s4claw lets you deploy, connect, and operate AI agents on Kubernetes the same 
 > 🆕 **claw4k8s** — When an agent OOMs at 2am, no human gets paged. The operator detects the crash, matches a rule, writes a signed intent annotation, and the reconciler applies the fix. Unknown issues? A Companion Claw (LLM agent) analyzes, proposes, and routes to human approval via Slack. Every action Ed25519-signed for audit. [See the comparison →](docs/marketing/comparison.md)
 
 <p align="center">
-  <a href="docs/demo-k8s.cast">
-    <img src="docs/demo-k8s.svg" alt="k8s4claw K8s demo" width="800"/>
-  </a>
+  <img src="docs/marketing/media/demo.gif" alt="claw4k8s self-healing demo" width="800"/>
   <br/>
-  <em>kind cluster → deploy agent → kubectl get pods → WebSocket chat</em>
+  <em>Real OOM → ClawOpsController detects → rule matched → intent signed + consumed → Ed25519 audit trail. 90 seconds, end to end.</em>
 </p>
 
 ## Why k8s4claw?
