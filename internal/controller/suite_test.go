@@ -128,7 +128,7 @@ func TestMain(m *testing.M) {
 		Scheme:     mgr.GetScheme(),
 		RuleEngine: rules.NewEngine(rules.DefaultRules),
 		Signer:     signet.NewMockSigner(),
-		Recorder:   mgr.GetEventRecorderFor("clawops-controller"),
+		Recorder:   mgr.GetEventRecorderFor("clawops-controller"), //nolint:staticcheck // SA1019: new events API returns different type
 		Config:     DefaultClawOpsConfig(),
 	}
 	clawOpsCtrl.InitActionCounts()
