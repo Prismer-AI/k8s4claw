@@ -5,6 +5,11 @@ Quick reference for launching claw4k8s publicly.
 ## Files
 
 - **[demo-storyboard.md](demo-storyboard.md)** — 2-minute demo storyboard, asciinema recording commands, Twitter thread, HN submission copy
+- **[comparison.md](comparison.md)** — claw4k8s vs k8sgpt / kubectl-ai / Holmes positioning
+- **[architecture.md](architecture.md)** — Mermaid diagrams of the auto-remediation loop, intent annotation pattern, and escalation state machine
+- **[release-notes-draft.md](release-notes-draft.md)** — v0.2.0 GitHub release body + pre-publish checklist + anticipated HN Q&A
+- **[media/demo.cast](media/demo.cast)** — asciinema recording (104s, 120×40)
+- **[media/demo.gif](media/demo.gif)** — rendered GIF for Twitter/HN embed (542 KB)
 - **[../../scripts/demo-claw4k8s.sh](../../scripts/demo-claw4k8s.sh)** — Executable demo script for asciinema capture
 
 ## Launch checklist
