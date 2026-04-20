@@ -78,6 +78,13 @@ func (r *ClawReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 		return ctrl.Result{}, fmt.Errorf("failed to ensure finalizer: %w", err)
 	}
 
+	// Consume ops intent annotation (claw4k8s auto-remediation).
+	// This must happen before sub-resource reconciliation so that intent-driven
+	// changes (e.g., bump-memory) are applied before the StatefulSet is reconciled.
+	if err := r.consumeAndExecuteOpsIntent(ctx, &claw); err != nil {
+		return ctrl.Result{}, fmt.Errorf("failed to consume ops intent: %w", err)
+	}
+
 	// Ensure headless Service exists and is up to date.
 	if err := r.ensureService(ctx, &claw, adapter); err != nil {
 		return ctrl.Result{}, fmt.Errorf("failed to ensure Service: %w", err)
@@ -350,6 +357,9 @@ func (r *ClawReconciler) buildStatefulSet(ctx context.Context, claw *clawv1alpha
 	labels := clawLabels(claw)
 
 	replicas := int32(1)
+	if claw.Spec.Replicas != nil {
+		replicas = *claw.Spec.Replicas
+	}
 
 	podTemplate := adapter.PodTemplate(claw)
 
@@ -362,6 +372,12 @@ func (r *ClawReconciler) buildStatefulSet(ctx context.Context, claw *clawv1alpha
 			}
 		}
 	}
+
+	// Apply spec.resources overrides to the runtime container. This is how
+	// claw4k8s intent actions (bump-memory, bump-cpu) persist across reconciles:
+	// the intent handler mutates claw.Spec.Resources, and the adapter-rebuilt
+	// pod template picks the overrides up here.
+	applyResourceOverrides(claw, podTemplate)
 
 	// Apply labels to the pod template.
 	if podTemplate.Labels == nil {

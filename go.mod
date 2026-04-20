@@ -1,6 +1,6 @@
 module github.com/Prismer-AI/k8s4claw
 
-go 1.25.3
+go 1.25.9
 
 require (
 	github.com/Masterminds/semver/v3 v3.4.0
@@ -12,6 +12,7 @@ require (
 	github.com/kubernetes-csi/external-snapshotter/client/v8 v8.4.0
 	github.com/prometheus/client_golang v1.23.2
 	github.com/robfig/cron/v3 v3.0.1
+	github.com/stretchr/testify v1.11.1
 	go.etcd.io/bbolt v1.4.3
 	go.uber.org/zap v1.27.0
 	k8s.io/api v0.35.2

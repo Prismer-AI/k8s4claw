@@ -22,7 +22,9 @@ import (
 	clawv1alpha1 "github.com/Prismer-AI/k8s4claw/api/v1alpha1"
 	"github.com/Prismer-AI/k8s4claw/internal/controller"
 	clawregistry "github.com/Prismer-AI/k8s4claw/internal/registry"
+	"github.com/Prismer-AI/k8s4claw/internal/rules"
 	clawruntime "github.com/Prismer-AI/k8s4claw/internal/runtime"
+	"github.com/Prismer-AI/k8s4claw/internal/signet"
 	clawwebhook "github.com/Prismer-AI/k8s4claw/internal/webhook"
 )
 
@@ -81,6 +83,7 @@ func main() {
 	registry.Register(clawv1alpha1.RuntimePicoClaw, &clawruntime.PicoClawAdapter{})
 	registry.Register(clawv1alpha1.RuntimeIronClaw, &clawruntime.IronClawAdapter{})
 	registry.Register(clawv1alpha1.RuntimeHermesClaw, &clawruntime.HermesClawAdapter{})
+	registry.Register(clawv1alpha1.RuntimeK8sOps, &clawruntime.K8sOpsAdapter{})
 
 	// Register field indexers.
 	if err := controller.SetupChannelNameIndex(mgr); err != nil {
@@ -124,6 +127,21 @@ func main() {
 		TagLister: registryClient,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "AutoUpdate")
+		os.Exit(1)
+	}
+
+	// Register ClawOps controller.
+	clawOpsController := &controller.ClawOpsController{
+		Client:     mgr.GetClient(),
+		Scheme:     mgr.GetScheme(),
+		RuleEngine: rules.NewEngine(rules.DefaultRules),
+		Signer:     signet.NewSigner("signet"),
+		Recorder:   mgr.GetEventRecorderFor("clawops-controller"), //nolint:staticcheck // SA1019
+		Config:     controller.DefaultClawOpsConfig(),
+	}
+	clawOpsController.InitActionCounts()
+	if err := clawOpsController.SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "ClawOps")
 		os.Exit(1)
 	}
 

@@ -176,9 +176,10 @@ jobs:
           fetch-depth: 0
       - name: Check DCO sign-off
         run: |
-          commits=$(git log --format='%H %s' origin/${{ github.base_ref }}..HEAD)
+          commits=$(git log --no-merges --format='%H %s' origin/${{ github.base_ref }}..HEAD)
           failed=0
           while IFS= read -r line; do
+            [ -z "$line" ] && continue
             sha=$(echo "$line" | cut -d' ' -f1)
             body=$(git log -1 --format='%B' "$sha")
             if ! echo "$body" | grep -q "Signed-off-by:"; then

@@ -16,4 +16,8 @@ const (
 	EventAutoUpdateComplete    = "AutoUpdateComplete"
 	EventAutoUpdateRollback    = "AutoUpdateRollback"
 	EventAutoUpdateCircuitOpen = "AutoUpdateCircuitOpen"
+
+	EventOpsIntentExecuted = "OpsIntentExecuted"
+	EventOpsIntentRejected = "OpsIntentRejected"
+	EventOpsIntentFailed   = "OpsIntentFailed"
 )

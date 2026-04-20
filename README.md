@@ -6,21 +6,35 @@
 [![License](https://img.shields.io/github/license/Prismer-AI/k8s4claw)](LICENSE)
 [![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/Prismer-AI/k8s4claw?quickstart=1)
 
-**Kubernetes operator for managing heterogeneous AI agent runtimes.** One CRD, any runtime, production-ready from day one.
+**Kubernetes operator where AI agents manage their own infrastructure.** One CRD, any runtime, self-healing from day one.
 
-k8s4claw lets you deploy, connect, and operate AI agents on Kubernetes the same way you manage any other workload — declaratively, with built-in persistence, auto-updates, and inter-agent communication.
+k8s4claw lets you deploy, connect, and operate AI agents on Kubernetes the same way you manage any other workload — declaratively, with built-in persistence, auto-updates, inter-agent communication, and **[claw4k8s](docs/plans/2026-04-19-claw4k8s-design.md): an autonomous ops layer that lets agents heal themselves**.
+
+> 🆕 **claw4k8s** — When an agent OOMs at 2am, no human gets paged. The operator detects the crash, matches a rule, writes a signed intent annotation, and the reconciler applies the fix. Unknown issues? A Companion Claw (LLM agent) analyzes, proposes, and routes to human approval via Slack. Every action Ed25519-signed for audit. [See the comparison →](docs/marketing/comparison.md)
 
 <p align="center">
-  <a href="docs/demo-k8s.cast">
-    <img src="docs/demo-k8s.svg" alt="k8s4claw K8s demo" width="800"/>
-  </a>
+  <img src="docs/marketing/media/demo.gif" alt="claw4k8s self-healing demo" width="800"/>
   <br/>
-  <em>kind cluster → deploy agent → kubectl get pods → WebSocket chat</em>
+  <em>Real OOM → ClawOpsController detects → rule matched → intent signed + consumed → Ed25519 audit trail. 90 seconds, end to end.</em>
 </p>
 
 ## Why k8s4claw?
 
 Running AI agents in production means solving the same problems over and over: secret management, persistent storage, graceful updates, inter-service communication, and observability. k8s4claw wraps all of this into a single `Claw` CRD so you can focus on what your agent does, not how it runs.
+
+## How is this different?
+
+| Capability                         | k8sgpt          | kubectl-ai      | Holmes (Robusta) | k8s4claw + claw4k8s       |
+| ---------------------------------- | --------------- | --------------- | ---------------- | ------------------------- |
+| Diagnoses cluster issues           | ✓               | ✓               | ✓                | ✓                         |
+| Fixes without human approval       | —               | —               | —                | ✓ (rule-based)            |
+| Fixes with human approval          | —               | ✓               | ✓                | ✓ (LLM escalation)        |
+| **Agents manage their own infra**  | —               | —               | —                | **✓**                     |
+| Cryptographic audit trail          | —               | —               | —                | ✓ (Ed25519)               |
+| Graceful LLM fallback              | —               | —               | partial          | ✓ (notification)          |
+| Primary target                     | diagnostic CLI  | kubectl wrapper | SRE incidents    | AI agent self-management  |
+
+**The wedge:** claw4k8s is the first K8s operator where AI agents manage their **own** infrastructure — dogfooding as the product. An agent runtime running on K8s also detects and fixes its own K8s issues. See [claw4k8s design](docs/plans/2026-04-19-claw4k8s-design.md) and [full comparison](docs/marketing/comparison.md).
 
 ## Architecture
 

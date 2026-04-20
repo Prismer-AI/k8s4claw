@@ -1,6 +1,7 @@
 package v1alpha1
 
 import (
+	corev1 "k8s.io/api/core/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -54,6 +55,20 @@ type ClawSpec struct {
 	// AutoUpdate configures automatic version updates.
 	// +optional
 	AutoUpdate *AutoUpdateSpec `json:"autoUpdate,omitempty"`
+
+	// Replicas overrides the default replica count for the StatefulSet.
+	// Typically mutated by ClawOpsController via ops-intent annotations
+	// (scale-replicas action). Unset means operator default (1).
+	// +optional
+	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:validation:Maximum=10
+	Replicas *int32 `json:"replicas,omitempty"`
+
+	// Resources overrides the default runtime container resource requests/limits.
+	// Typically mutated by ClawOpsController via ops-intent annotations
+	// (bump-memory, bump-cpu actions). Unset fields fall back to adapter defaults.
+	// +optional
+	Resources *corev1.ResourceRequirements `json:"resources,omitempty"`
 }
 
 // SelfConfigureSpec controls agent self-configuration.
