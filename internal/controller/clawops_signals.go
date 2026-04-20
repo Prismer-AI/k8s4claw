@@ -25,7 +25,8 @@ func ExtractPodSignals(pod *corev1.Pod) []rules.Signal {
 		return signals
 	}
 
-	for _, cs := range pod.Status.ContainerStatuses {
+	for i := range pod.Status.ContainerStatuses {
+		cs := &pod.Status.ContainerStatuses[i]
 		// OOMKilled: check last termination state.
 		if cs.LastTerminationState.Terminated != nil &&
 			cs.LastTerminationState.Terminated.Reason == "OOMKilled" {

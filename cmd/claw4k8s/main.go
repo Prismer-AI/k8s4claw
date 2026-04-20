@@ -64,7 +64,8 @@ func main() {
 	logger.Info("starting escalation watcher", "namespace", namespace)
 	if err := watcher.Run(ctx); err != nil {
 		logger.Error(err, "watcher exited with error")
-		os.Exit(1)
+		cancel()
+		return
 	}
 
 	logger.Info("companion claw stopped")

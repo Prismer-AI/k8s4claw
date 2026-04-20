@@ -177,9 +177,9 @@ func (r *ClawOpsController) deduplicateSignals(ctx context.Context, claw *v1alph
 	}
 
 	activeTypes := make(map[v1alpha1.TriggerType]bool)
-	for _, esc := range escList.Items {
-		if esc.Spec.ClawRef.Name == claw.Name && !v1alpha1.IsTerminalPhase(esc.Status.Phase) {
-			activeTypes[esc.Spec.Trigger.Type] = true
+	for i := range escList.Items {
+		if escList.Items[i].Spec.ClawRef.Name == claw.Name && !v1alpha1.IsTerminalPhase(escList.Items[i].Status.Phase) {
+			activeTypes[escList.Items[i].Spec.Trigger.Type] = true
 		}
 	}
 
@@ -230,7 +230,7 @@ func (r *ClawOpsController) escalate(ctx context.Context, claw *v1alpha1.Claw, s
 			}},
 		},
 		Spec: v1alpha1.ClawOpsEscalationSpec{
-			ClawRef:  corev1.LocalObjectReference{Name: claw.Name},
+			ClawRef: corev1.LocalObjectReference{Name: claw.Name},
 			Trigger: v1alpha1.TriggerInfo{
 				Type:      sig.Type,
 				Message:   sig.Message,
@@ -296,7 +296,7 @@ func (r *ClawOpsController) autoExecute(ctx context.Context, claw *v1alpha1.Claw
 			}},
 		},
 		Spec: v1alpha1.ClawOpsEscalationSpec{
-			ClawRef:  corev1.LocalObjectReference{Name: claw.Name},
+			ClawRef: corev1.LocalObjectReference{Name: claw.Name},
 			Trigger: v1alpha1.TriggerInfo{
 				Type:      sig.Type,
 				Message:   sig.Message,
