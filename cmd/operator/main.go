@@ -132,12 +132,12 @@ func main() {
 
 	// Register ClawOps controller.
 	clawOpsController := &controller.ClawOpsController{
-		Client:       mgr.GetClient(),
-		Scheme:       mgr.GetScheme(),
-		RuleEngine:   rules.NewEngine(rules.DefaultRules),
-		Signer:       signet.NewMockSigner(), // TODO: replace with CLISigner in production
-		Recorder:     mgr.GetEventRecorderFor("clawops-controller"), //nolint:staticcheck // SA1019
-		Config:       controller.DefaultClawOpsConfig(),
+		Client:     mgr.GetClient(),
+		Scheme:     mgr.GetScheme(),
+		RuleEngine: rules.NewEngine(rules.DefaultRules),
+		Signer:     signet.NewSigner("signet"),
+		Recorder:   mgr.GetEventRecorderFor("clawops-controller"), //nolint:staticcheck // SA1019
+		Config:     controller.DefaultClawOpsConfig(),
 	}
 	clawOpsController.InitActionCounts()
 	if err := clawOpsController.SetupWithManager(mgr); err != nil {
