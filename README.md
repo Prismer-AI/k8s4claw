@@ -3,10 +3,12 @@
 [![CI](https://github.com/Prismer-AI/k8s4claw/actions/workflows/ci.yml/badge.svg)](https://github.com/Prismer-AI/k8s4claw/actions/workflows/ci.yml)
 [![CodeQL](https://github.com/Prismer-AI/k8s4claw/actions/workflows/codeql.yml/badge.svg)](https://github.com/Prismer-AI/k8s4claw/actions/workflows/codeql.yml)
 [![Go Report Card](https://goreportcard.com/badge/github.com/Prismer-AI/k8s4claw)](https://goreportcard.com/report/github.com/Prismer-AI/k8s4claw)
+[![Release](https://img.shields.io/github/v/release/Prismer-AI/k8s4claw?sort=semver)](https://github.com/Prismer-AI/k8s4claw/releases)
+[![Go Reference](https://pkg.go.dev/badge/github.com/Prismer-AI/k8s4claw.svg)](https://pkg.go.dev/github.com/Prismer-AI/k8s4claw)
 [![License](https://img.shields.io/github/license/Prismer-AI/k8s4claw)](LICENSE)
 [![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/Prismer-AI/k8s4claw?quickstart=1)
 
-**Kubernetes operator where AI agents manage their own infrastructure.** One CRD, any runtime, self-healing from day one.
+**The Kubernetes operator where AI agents manage their own infrastructure.** One CRD, any runtime (OpenClaw, NanoClaw, ZeroClaw, PicoClaw, IronClaw, HermesClaw), self-healing from day one.
 
 k8s4claw lets you deploy, connect, and operate AI agents on Kubernetes the same way you manage any other workload — declaratively, with built-in persistence, auto-updates, inter-agent communication, and **[claw4k8s](docs/plans/2026-04-19-claw4k8s-design.md): an autonomous ops layer that lets agents heal themselves**.
 
@@ -115,6 +117,8 @@ Channel Sidecar ──UDS──► IPC Bus ──Bridge──► Runtime Contain
 | **ZeroClaw** | Rust | High-performance agent runtime | 3000 | HTTP |
 | **PicoClaw** | — | Ultra-minimal serverless agent | 8080 | TCP |
 | **IronClaw** | Rust + WASM | Security/privacy-focused AI assistant | 3001 | HTTP |
+| **HermesClaw** | Python | Nous Research Hermes — tool-calling LLM agent | 8642 | HTTP |
+| **K8sOps** | Python/Go | Companion Claw for claw4k8s self-healing | 8800 | HTTP |
 | **Custom** | Any | Bring your own runtime | — | — |
 
 ## Quick Start
@@ -126,6 +130,24 @@ Channel Sidecar ──UDS──► IPC Bus ──Bridge──► Runtime Contain
 - Go 1.23+ (for building from source)
 
 ### 1. Install CRDs and run the operator
+
+**Option A: Helm (recommended, v0.2.1+):**
+
+```bash
+helm install k8s4claw oci://ghcr.io/prismer-ai/charts/k8s4claw --version 0.2.1 \
+  --namespace k8s4claw-system --create-namespace \
+  --set webhook.certManager.enabled=true  # requires cert-manager pre-installed
+```
+
+Or from source:
+
+```bash
+git clone https://github.com/Prismer-AI/k8s4claw.git
+cd k8s4claw
+helm install k8s4claw charts/k8s4claw --namespace k8s4claw-system --create-namespace
+```
+
+**Option B: From source with Make:**
 
 ```bash
 git clone https://github.com/Prismer-AI/k8s4claw.git
@@ -207,21 +229,71 @@ spec:
 
 ## Features
 
+### claw4k8s — Autonomous Self-Healing (v0.2.0+)
+
+The unique wedge: AI agents manage their **own** Kubernetes infrastructure. See [architecture diagrams](docs/marketing/architecture.md).
+
+- **ClawOpsController** — watches Pod status (OOMKilled, CrashLoop, HighCPU, Evicted) and auto-executes low-risk fixes from a deterministic rule engine
+- **Intent annotation pattern** — agents never patch StatefulSets directly; a single reconciler consumes intents through a 5-action allowlist with generation-based idempotency. Zero controller contention.
+- **Companion Claw (LLM agent)** — handles novel issues. Analyzes, proposes, routes to human approval via Slack (ClawChannel integration).
+- **Ed25519-signed audit trail** — every action signed; pure-Go signer with optional `signet` CLI fallback.
+- **Graceful LLM fallback** — 3 retries with exponential backoff, then degrades to human notification — never paralyzes.
+- **ClawOpsEscalation CRD** — dual-purpose audit + workflow state machine (Pending → Analyzing → Proposed → AwaitingApproval → Approved → Executed).
+
 ### Declarative Lifecycle Management
-- StatefulSet-based with PVC lifecycle, PDB, NetworkPolicy, Ingress
-- Per-runtime resource defaults, probes, and graceful shutdown tuning
-- Webhook validation: credential requirements, PVC immutability, runtime type lock
+
+- `Claw` CRD manages StatefulSet, Service, ConfigMap, ServiceAccount, PDB, PVCs, NetworkPolicy, Ingress, RBAC in a single declarative resource
+- Per-runtime resource defaults, liveness/readiness probes, graceful shutdown tuning
+- Webhook validation: credential requirements, PVC immutability, runtime type lock, NetworkPolicy mandatory for `k8sops` runtime
+- Finalizer-based cleanup with `Retain` / `Delete` / `Archive` reclaim policies
 
 ### Auto-Update with Circuit Breaker
+
 - OCI registry polling on cron schedule
 - Semver constraint filtering (`^1.x`, `~2.0.0`)
 - Health-verified rollouts with configurable timeout
-- Automatic rollback + circuit breaker after N failures
+- Automatic rollback + circuit breaker after N consecutive failures
 
 ### Persistence & Archival
-- Session, output, and workspace PVCs via StatefulSet volumeClaimTemplates
+
+- Session, output, and workspace PVCs via StatefulSet `volumeClaimTemplates`
 - CSI VolumeSnapshot on cron schedule with retention pruning
-- S3-compatible archival sidecar (S3, MinIO, GCS, R2)
+- S3-compatible archival sidecar (S3, MinIO, GCS, R2) with lifecycle policies
+
+### Communication Channels
+
+- **ClawChannel CRD** — declarative channel definitions with reference counting
+- Built-in sidecars: **Slack**, **Discord**, **Webhook** (more coming)
+- Custom sidecar support for any protocol
+- Bidirectional / inbound / outbound modes
+
+### IPC Bus — Reliable In-Pod Messaging
+
+- **WAL** — at-least-once delivery via BoltDB write-ahead log
+- **DLQ** — dead letter queue for messages exceeding retry limits
+- **Backpressure** — ring buffer with high/low watermark flow control
+- **Protocol bridges** — WebSocket (OpenClaw), TCP (PicoClaw), UDS (NanoClaw), SSE (ZeroClaw)
+
+### Security & Compliance
+
+- Pod Security Standards: `runAsNonRoot`, `readOnlyRootFilesystem`, `seccompProfile=RuntimeDefault`, `drop=[ALL]` capabilities
+- NetworkPolicy defaults: default-deny + selective allow
+- Per-instance ServiceAccount with `automountServiceAccountToken=false`
+- ExternalSecrets integration for secrets rotation
+- Ed25519 cryptographic audit for all ops actions
+
+### Self-Configuration
+
+- **ClawSelfConfig CRD** — agents can modify their own skills, config, workspace files, and env vars
+- Scoped allowlist via `spec.selfConfigure.allowedActions` (skills, config, workspaceFiles, envVars)
+- Rate limits on self-mutation
+
+### Observability
+
+- Prometheus metrics per Claw instance (reconcile latency, phase transitions, remediation actions, LLM latency)
+- K8s Events on all phase transitions
+- Status subresource with detailed conditions (RuntimeReady, AutoUpdateStatus, ChannelStatus)
+- PrometheusRule + ServiceMonitor templates in the Helm chart
 
 ### Go SDK
 
@@ -262,6 +334,10 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for the full development guide.
 - [Operator Core Design](docs/plans/2026-03-04-k8s4claw-design.md)
 - [IPC Bus + Resilience Design](docs/plans/2026-03-05-phase4-ipcbus-resilience-design.md)
 - [Auto-Update Controller Design](docs/plans/2026-03-07-auto-update-design.md)
+- **[claw4k8s Autonomous Ops Design](docs/plans/2026-04-19-claw4k8s-design.md)** — self-healing + LLM escalation + Ed25519 audit
+- [claw4k8s Implementation Plan](docs/plans/2026-04-19-claw4k8s-impl.md) — task-by-task breakdown
+- [claw4k8s Architecture Diagrams](docs/marketing/architecture.md) — Mermaid flowcharts of the full auto-remediation loop
+- [vs k8sgpt / kubectl-ai / Holmes](docs/marketing/comparison.md) — positioning comparison
 
 ## License
 
