@@ -190,3 +190,31 @@ jobs:
           if [ "$failed" -eq 1 ]; then
             exit 1
           fi
+
+  # Aggregate gate for branch protection.
+  #
+  # Set this single job as the sole required status check on main.
+  # It passes when all applicable jobs either succeeded or were correctly
+  # skipped (e.g., docs-only PRs skip Go jobs). It fails if any required
+  # job failed, was cancelled, or errored.
+  #
+  # This lets docs-only PRs merge without admin override while still
+  # failing fast on any real regression.
+  ci-gate:
+    needs: [changes, lint, test, build, verify-codegen, docker-build, govulncheck, coverage-gate, dco]
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check all required jobs passed or were skipped
+        run: |
+          # Any failure or cancellation in a dependency fails the gate.
+          # 'skipped' is acceptable (path-filtered jobs on docs-only PRs).
+          results='${{ toJSON(needs) }}'
+          echo "needs results: $results"
+          failed=$(echo "$results" | jq -r 'to_entries[] | select(.value.result == "failure" or .value.result == "cancelled") | .key')
+          if [ -n "$failed" ]; then
+            echo "::error::One or more required jobs failed or were cancelled:"
+            echo "$failed"
+            exit 1
+          fi
+          echo "All required jobs passed or were correctly skipped."
