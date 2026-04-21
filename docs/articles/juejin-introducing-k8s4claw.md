@@ -413,7 +413,7 @@ for msg := range inbox {
 
 ## 下一步
 
-k8s4claw 基于 Apache-2.0 开源。想参与的话，从 [Issue #4：补 snapshot 和 PDB 的 envtest 覆盖](https://github.com/Prismer-AI/k8s4claw/issues/4) 开始比较合适。其他可以去 [issue tracker](https://github.com/Prismer-AI/k8s4claw/issues) 翻翻。
+k8s4claw 基于 Apache-2.0 开源。目前开放的贡献点是 [Issue #4：补 snapshot 和 PDB 的 envtest 覆盖](https://github.com/Prismer-AI/k8s4claw/issues/4)。想做别的方向的话，开个新 issue，我们会评估。
 
 **GitHub**：[github.com/Prismer-AI/k8s4claw](https://github.com/Prismer-AI/k8s4claw)
 

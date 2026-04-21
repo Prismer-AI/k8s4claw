@@ -432,7 +432,7 @@ Worth being honest about:
 
 ## What's Next
 
-k8s4claw is open source under Apache-2.0. If you want to help, a good starting point is [Issue #4: add snapshot and PDB envtest coverage](https://github.com/Prismer-AI/k8s4claw/issues/4). Browse the [issue tracker](https://github.com/Prismer-AI/k8s4claw/issues) for more.
+k8s4claw is open source under Apache-2.0. The current open contribution target is [Issue #4: add snapshot and PDB envtest coverage](https://github.com/Prismer-AI/k8s4claw/issues/4). If you want to propose something else, open a new issue and we'll triage it.
 
 **GitHub**: [github.com/Prismer-AI/k8s4claw](https://github.com/Prismer-AI/k8s4claw)
 
