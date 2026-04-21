@@ -1,0 +1,60 @@
+{{- if .Values.companion.rbac.create }}
+# Companion Claw RBAC — namespace-scoped, read-only diagnostics + escalation status writes.
+# Created per-namespace when users deploy a Companion Claw (runtime: k8sops).
+# The Companion Claw has NO write access to Claw CRs — only ClawOpsEscalation/status.
+{{- range .Values.companion.rbac.namespaces }}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ $.Values.companion.serviceAccountName }}
+  namespace: {{ . }}
+  labels:
+    {{- include "k8s4claw.labels" $ | nindent 4 }}
+    app.kubernetes.io/component: companion
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ $.Values.companion.serviceAccountName }}
+  namespace: {{ . }}
+  labels:
+    {{- include "k8s4claw.labels" $ | nindent 4 }}
+    app.kubernetes.io/component: companion
+rules:
+  # Read-only: diagnostics
+  - apiGroups: [""]
+    resources: ["pods", "services", "events"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["pods/log"]
+    verbs: ["get"]
+  - apiGroups: ["apps"]
+    resources: ["statefulsets"]
+    verbs: ["get", "list"]
+  - apiGroups: ["claw.prismer.ai"]
+    resources: ["claws", "clawopsescalations"]
+    verbs: ["get", "list", "watch"]
+  # Only write: Escalation status (analysis + proposed action)
+  - apiGroups: ["claw.prismer.ai"]
+    resources: ["clawopsescalations/status"]
+    verbs: ["update", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ $.Values.companion.serviceAccountName }}
+  namespace: {{ . }}
+  labels:
+    {{- include "k8s4claw.labels" $ | nindent 4 }}
+    app.kubernetes.io/component: companion
+subjects:
+  - kind: ServiceAccount
+    name: {{ $.Values.companion.serviceAccountName }}
+    namespace: {{ . }}
+roleRef:
+  kind: Role
+  name: {{ $.Values.companion.serviceAccountName }}
+  apiGroup: rbac.authorization.k8s.io
+{{- end }}
+{{- end }}

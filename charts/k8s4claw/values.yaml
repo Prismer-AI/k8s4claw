@@ -45,6 +45,22 @@ monitoring:
   prometheusRule:
     enabled: true
 
+# -- Companion Claw (claw4k8s) RBAC for autonomous ops.
+# Creates namespace-scoped ServiceAccount, Role, and RoleBinding
+# for the Companion Claw runtime (k8sops). The Companion has
+# read-only access to diagnostics and can only write to
+# ClawOpsEscalation/status (no Claw CR writes).
+companion:
+  rbac:
+    create: false
+    # Namespaces where Companion Claw RBAC should be created.
+    # Typically the namespace(s) where your Claw agents run.
+    namespaces: []
+    # namespaces:
+    #   - default
+    #   - ai-agents
+  serviceAccountName: claw4k8s-companion
+
 nodeSelector: {}
 tolerations: []
 affinity: {}
