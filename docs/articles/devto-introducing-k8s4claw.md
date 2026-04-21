@@ -42,6 +42,7 @@ We had several agent runtimes in flight at once — different languages, differe
 | PicoClaw | Go | Ultra-minimal serverless |
 | IronClaw | Rust + WASM | Security-focused agent |
 | HermesClaw | Python | Conversational with tool use |
+| K8sOps | Go | Cluster self-healing (claw4k8s) |
 
 Each had its own Helm chart, sidecar layout, and update strategy. Adding a Slack channel meant editing several files. Rotating credentials meant touching every deployment. Rolling back a bad update was a manual process.
 
@@ -394,19 +395,19 @@ for msg := range inbox {
 
 ## Testing Strategy
 
-The core packages all sit above 80% statement coverage as of the current release, checked in CI on every PR:
+The repo has reasonable test coverage on the core packages. A recent local run looked roughly like this:
 
-| Package | Coverage |
-|---------|----------|
-| `internal/webhook` | 97.6% |
-| `internal/runtime` | 94%+ |
-| `internal/registry` | 86%+ |
-| `sdk` | 83%+ |
-| `internal/controller` | 81%+ |
-| `sdk/channel` | 81%+ |
-| `internal/ipcbus` | 80%+ |
+| Package | Coverage (approx.) |
+|---------|-------------------|
+| `internal/webhook` | ~97% |
+| `internal/runtime` | ~94% |
+| `internal/registry` | ~86% |
+| `sdk` | ~83% |
+| `internal/controller` | ~81% |
+| `sdk/channel` | ~81% |
+| `internal/ipcbus` | ~80% |
 
-CI enforces a total-coverage threshold; per-package floors are maintained by convention and visible in the coverage report attached to each run.
+Numbers move PR by PR. CI publishes a coverage report as an artifact and gates on a total-coverage threshold; there is no per-package floor enforced today. Treat the table as a snapshot, not a contract.
 
 The testing pyramid:
 
@@ -431,7 +432,7 @@ Worth being honest about:
 
 ## What's Next
 
-k8s4claw is open source under Apache-2.0. If you want to help, a good starting point is [Issue #4: add snapshot and PDB envtest coverage](https://github.com/Prismer-AI/k8s4claw/issues/4). Browse the [issue tracker](https://github.com/Prismer-AI/k8s4claw/issues) for more.
+k8s4claw is open source under Apache-2.0. The current open contribution target is [Issue #4: add snapshot and PDB envtest coverage](https://github.com/Prismer-AI/k8s4claw/issues/4). If you want to propose something else, open a new issue and we'll triage it.
 
 **GitHub**: [github.com/Prismer-AI/k8s4claw](https://github.com/Prismer-AI/k8s4claw)
 

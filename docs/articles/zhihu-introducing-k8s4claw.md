@@ -1,6 +1,6 @@
 ---
 title: "k8s4claw：用一个 CRD 管理 Kubernetes 上的 AI Agent 运行时"
-platform: 掘金
+platform: 知乎
 tags: Kubernetes, Go, AI, 开源, Operator
 ---
 
