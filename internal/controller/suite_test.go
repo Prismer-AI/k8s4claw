@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	snapshotv1 "github.com/kubernetes-csi/external-snapshotter/client/v8/apis/volumesnapshot/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -41,9 +42,24 @@ func TestMain(m *testing.M) {
 
 	ctx, cancel = context.WithCancel(context.TODO()) //nolint:gosec // G118: cancel is called in teardown at end of TestMain
 
+	// Resolve VolumeSnapshot CRD path from the Go module cache.
+	snapshotCRDPath := filepath.Join("..", "..", "vendor-crds", "snapshot")
+	// If vendor-crds doesn't exist, try the Go module cache.
+	if _, err := os.Stat(snapshotCRDPath); os.IsNotExist(err) {
+		gopath := os.Getenv("GOPATH")
+		if gopath == "" {
+			gopath = filepath.Join(os.Getenv("HOME"), "go")
+		}
+		snapshotCRDPath = filepath.Join(gopath, "pkg", "mod", "github.com", "kubernetes-csi",
+			"external-snapshotter", "client", "v8@v8.4.0", "config", "crd")
+	}
+
 	testEnv = &envtest.Environment{
-		CRDDirectoryPaths:     []string{filepath.Join("..", "..", "config", "crd", "bases")},
-		ErrorIfCRDPathMissing: true,
+		CRDDirectoryPaths: []string{
+			filepath.Join("..", "..", "config", "crd", "bases"),
+			snapshotCRDPath,
+		},
+		ErrorIfCRDPathMissing: false, // VolumeSnapshot CRDs may not be present in all environments
 		WebhookInstallOptions: envtest.WebhookInstallOptions{
 			Paths: []string{filepath.Join("..", "..", "config", "webhook")},
 		},
@@ -61,6 +77,9 @@ func TestMain(m *testing.M) {
 	// Register CRD scheme.
 	if err := clawv1alpha1.AddToScheme(scheme.Scheme); err != nil {
 		panic("failed to add clawv1alpha1 to scheme: " + err.Error())
+	}
+	if err := snapshotv1.AddToScheme(scheme.Scheme); err != nil {
+		panic("failed to add VolumeSnapshot to scheme: " + err.Error())
 	}
 
 	// Build the runtime registry with all 5 adapters.
