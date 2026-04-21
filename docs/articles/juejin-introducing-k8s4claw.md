@@ -42,6 +42,7 @@ Operator 会把它调谐为一整套 K8s 对象：StatefulSet、Headless Service
 | PicoClaw | Go | 极简 serverless |
 | IronClaw | Rust + WASM | 隐私/安全优先 |
 | HermesClaw | Python | 对话 + 工具调用 |
+| K8sOps | Go | 集群自愈（claw4k8s） |
 
 每个都有独立的 Helm chart、sidecar 布局、更新流程。加一个 Slack 通道要改好几个文件。轮换密钥要逐个部署改。回滚一次失败的发布得人工来。
 
@@ -379,19 +380,19 @@ for msg := range inbox {
 
 ## 测试策略
 
-当前版本的核心包都在 80% 以上覆盖率，每个 PR 在 CI 里检查：
+核心包有一定的测试覆盖度。最近一次本地跑大概是：
 
-| 包 | 覆盖率 |
-|---|--------|
-| `internal/webhook` | 97.6% |
-| `internal/runtime` | 94%+ |
-| `internal/registry` | 86%+ |
-| `sdk` | 83%+ |
-| `internal/controller` | 81%+ |
-| `sdk/channel` | 81%+ |
-| `internal/ipcbus` | 80%+ |
+| 包 | 覆盖率（约） |
+|---|------|
+| `internal/webhook` | ~97% |
+| `internal/runtime` | ~94% |
+| `internal/registry` | ~86% |
+| `sdk` | ~83% |
+| `internal/controller` | ~81% |
+| `sdk/channel` | ~81% |
+| `internal/ipcbus` | ~80% |
 
-CI 会检查总覆盖率门槛；单包覆盖率靠约定维护，在每次 CI 的 coverage 产物里可见。
+数字会随 PR 波动。CI 把覆盖率报告作为 artifact 发布，总覆盖率有门槛，单包目前没强制下限。这个表当作一个快照看，不是承诺。
 
 测试金字塔：
 
