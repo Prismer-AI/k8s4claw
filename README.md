@@ -8,21 +8,19 @@
 [![License](https://img.shields.io/github/license/Prismer-AI/k8s4claw)](LICENSE)
 [![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/Prismer-AI/k8s4claw?quickstart=1)
 
-**The Kubernetes operator where AI agents manage their own infrastructure — without giving the LLM `kubectl` permissions.** One CRD, any runtime (OpenClaw, NanoClaw, ZeroClaw, PicoClaw, IronClaw, HermesClaw), self-healing from day one.
+**A Kubernetes operator for AI agents that keeps the LLM out of the cluster's write path.** One CRD, any runtime (OpenClaw, NanoClaw, ZeroClaw, PicoClaw, IronClaw, HermesClaw), self-healing from day one.
 
 ## The core idea
 
-Most LLMops tools give the agent `kubectl`-equivalent RBAC and trust it to patch the cluster. k8s4claw doesn't. **The agent's ServiceAccount has zero `patch` verbs on your workloads.** It can only write an `ops-intent` annotation on a Claw CR. A single Go reconciler validates against an allowlist, checks an Ed25519 signature and generation guard, and is the only thing that mutates live resources.
+k8s4claw keeps the LLM out of the cluster's write path. **The agent's ServiceAccount cannot patch workload objects.** The LLM can only submit a signed `ops-intent` on a Claw CR; a Go reconciler validates the intent against an allowlist (plus generation guard and Ed25519 signature) and is the only component that mutates workloads.
 
-|                                  | LLMops tools with `kubectl` RBAC | **k8s4claw**                         |
-| -------------------------------- | -------------------------------- | ------------------------------------ |
-| What the LLM can write           | anything its SA has verbs for    | one annotation, one CR               |
-| Who mutates StatefulSets         | the LLM                          | the reconciler, never the LLM        |
-| Blast radius if prompt-injected  | everything the SA can touch      | bounded by the intent allowlist      |
-| Replay attacks                   | possible                         | blocked by generation guard          |
-| Audit                            | kubectl audit logs               | Ed25519-signed receipts + K8s audit  |
+|                                  | LLMops tools with `kubectl` RBAC | **k8s4claw**                        |
+| -------------------------------- | -------------------------------- | ----------------------------------- |
+| Who mutates StatefulSets         | the LLM                          | the reconciler, never the LLM       |
+| Blast radius if prompt-injected  | everything the SA can touch      | bounded by the intent allowlist     |
+| Audit                            | kubectl audit logs               | Ed25519-signed receipts + K8s audit |
 
-This is the only wedge. Everything else (runtime registry, IPC bus, auto-update, archival) is table-stakes infrastructure for running AI agents on K8s.
+This is the main architectural distinction. Everything else (runtime registry, IPC bus, auto-update, archival) is infrastructure for running AI agents on K8s.
 
 See [threat model](docs/security/threat-model.md) · [comparison](docs/marketing/comparison.md) · [claw4k8s design](docs/plans/2026-04-19-claw4k8s-design.md)
 
@@ -42,7 +40,7 @@ On top of that, **claw4k8s** lets agents self-heal without ever granting the LLM
 
 | Capability                         | k8sgpt          | kubectl-ai      | Holmes (Robusta) | k8s4claw + claw4k8s       |
 | ---------------------------------- | --------------- | --------------- | ---------------- | ------------------------- |
-| **LLM has `kubectl` / patch RBAC** | —               | human approves  | **yes**          | **no — ever**             |
+| **LLM has `kubectl` / patch RBAC** | —               | human approves  | **yes**          | **no (by design)**        |
 | Diagnoses cluster issues           | ✓               | ✓               | ✓                | ✓                         |
 | Fixes without human approval       | —               | —               | —                | ✓ (rule-based)            |
 | Fixes with human approval          | —               | ✓               | ✓                | ✓ (LLM escalation)        |
@@ -51,7 +49,7 @@ On top of that, **claw4k8s** lets agents self-heal without ever granting the LLM
 | Graceful LLM fallback              | —               | —               | partial          | ✓ (notification)          |
 | Primary target                     | diagnostic CLI  | kubectl wrapper | SRE incidents    | AI agent self-management  |
 
-**The wedge:** claw4k8s is the first K8s operator where AI agents manage their **own** infrastructure — *with the LLM behind a real RBAC boundary, not behind a "please review this patch" prompt*. Dogfooding as the product. See [full comparison](docs/marketing/comparison.md) and [threat model](docs/security/threat-model.md).
+**The wedge:** claw4k8s is the first K8s operator where AI agents manage their **own** infrastructure, with the LLM kept out of the write path by RBAC rather than by a review step. Dogfooding as the product. See [full comparison](docs/marketing/comparison.md) and [threat model](docs/security/threat-model.md).
 
 ## Architecture
 
