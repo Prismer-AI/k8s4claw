@@ -630,6 +630,7 @@ spec:
                 - picoclaw
                 - ironclaw
                 - hermesclaw
+                - hermesrs
                 - k8sops
                 - custom
                 type: string
