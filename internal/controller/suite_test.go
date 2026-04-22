@@ -5,7 +5,9 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	snapshotv1 "github.com/kubernetes-csi/external-snapshotter/client/v8/apis/volumesnapshot/v1"
@@ -42,24 +44,21 @@ func TestMain(m *testing.M) {
 
 	ctx, cancel = context.WithCancel(context.TODO()) //nolint:gosec // G118: cancel is called in teardown at end of TestMain
 
-	// Resolve VolumeSnapshot CRD path from the Go module cache.
-	snapshotCRDPath := filepath.Join("..", "..", "vendor-crds", "snapshot")
-	// If vendor-crds doesn't exist, try the Go module cache.
-	if _, err := os.Stat(snapshotCRDPath); os.IsNotExist(err) {
-		gopath := os.Getenv("GOPATH")
-		if gopath == "" {
-			gopath = filepath.Join(os.Getenv("HOME"), "go")
+	// Resolve VolumeSnapshot CRD path dynamically from the Go module cache.
+	// Uses `go list -m` so version bumps don't silently break the path.
+	crdPaths := []string{filepath.Join("..", "..", "config", "crd", "bases")}
+	snapshotModDir, goListErr := exec.Command("go", "list", "-m", "-f", "{{.Dir}}",
+		"github.com/kubernetes-csi/external-snapshotter/client/v8").Output()
+	if goListErr == nil {
+		snapshotCRDPath := filepath.Join(strings.TrimSpace(string(snapshotModDir)), "config", "crd")
+		if _, err := os.Stat(snapshotCRDPath); err == nil {
+			crdPaths = append(crdPaths, snapshotCRDPath)
 		}
-		snapshotCRDPath = filepath.Join(gopath, "pkg", "mod", "github.com", "kubernetes-csi",
-			"external-snapshotter", "client", "v8@v8.4.0", "config", "crd")
 	}
 
 	testEnv = &envtest.Environment{
-		CRDDirectoryPaths: []string{
-			filepath.Join("..", "..", "config", "crd", "bases"),
-			snapshotCRDPath,
-		},
-		ErrorIfCRDPathMissing: false, // VolumeSnapshot CRDs may not be present in all environments
+		CRDDirectoryPaths:     crdPaths,
+		ErrorIfCRDPathMissing: true,
 		WebhookInstallOptions: envtest.WebhookInstallOptions{
 			Paths: []string{filepath.Join("..", "..", "config", "webhook")},
 		},

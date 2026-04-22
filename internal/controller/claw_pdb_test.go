@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 	appsv1 "k8s.io/api/apps/v1"
 	policyv1 "k8s.io/api/policy/v1"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -121,7 +122,7 @@ func TestClawReconciler_PDBDisabled(t *testing.T) {
 	// Verify no PDB was created.
 	var pdb policyv1.PodDisruptionBudget
 	err := k8sClient.Get(ctx, types.NamespacedName{Name: clawName, Namespace: ns}, &pdb)
-	assert.True(t, client.IgnoreNotFound(err) == nil, "PDB should not exist when disabled")
+	assert.True(t, apierrors.IsNotFound(err), "PDB should not exist when disabled, got err: %v", err)
 }
 
 func TestClawReconciler_PDBDeletedOnDisable(t *testing.T) {

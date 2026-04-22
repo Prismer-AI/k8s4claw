@@ -69,15 +69,15 @@ func TestClawReconciler_SnapshotCreated(t *testing.T) {
 	require.NotNil(t, snap.Spec.Source.PersistentVolumeClaimName)
 	assert.Equal(t, fmt.Sprintf("session-%s-0", clawName), *snap.Spec.Source.PersistentVolumeClaimName)
 
-	// Check if last-snapshot-time annotation was set (may fail due to stale object in reconciler).
-	var updated clawv1alpha1.Claw
-	require.NoError(t, k8sClient.Get(ctx, client.ObjectKeyFromObject(claw), &updated))
+	// Wait for last-snapshot-time annotation (reconciler retries on stale object conflict).
 	annoKey := lastSnapshotTimeAnnotation + "-session"
-	if v := updated.Annotations[annoKey]; v != "" {
-		t.Logf("last snapshot time annotation set: %s", v)
-	} else {
-		t.Log("last snapshot time annotation not set (expected: stale object race in reconciler)")
-	}
+	waitForCondition(t, 15*time.Second, 500*time.Millisecond, func() (bool, error) {
+		var updated clawv1alpha1.Claw
+		if err := k8sClient.Get(ctx, client.ObjectKeyFromObject(claw), &updated); err != nil {
+			return false, err
+		}
+		return updated.Annotations[annoKey] != "", nil
+	})
 }
 
 func TestClawReconciler_SnapshotNotCreatedWithoutPersistence(t *testing.T) {
@@ -180,8 +180,8 @@ func TestClawReconciler_SnapshotPruning(t *testing.T) {
 				active++
 			}
 		}
-		// Should have pruned down to retain=2 (or 3 including the one just created).
-		return active <= 3, nil
+		// Should have pruned down to retain=2.
+		return active <= 2, nil
 	})
 
 	// Final count.
@@ -196,7 +196,7 @@ func TestClawReconciler_SnapshotPruning(t *testing.T) {
 			active++
 		}
 	}
-	assert.LessOrEqual(t, active, 3, "should have pruned to retain count + 1 (newly created)")
+	assert.LessOrEqual(t, active, 2, "should have pruned to retain count (retain=2)")
 	t.Logf("active snapshots after pruning: %d", active)
 }
 
