@@ -46,6 +46,8 @@ Both Dev.to posts carry `series: "k8s4claw internals"` so they nav-link on the s
 | Day 3 (2026-04-23) | Publish IPC bus deep-dive | Dev.to EN | ✅ live |
 | Day 3 (2026-04-23) | Publish IPC bus deep-dive | 知乎 | ✅ published |
 | Day 3 (2026-04-23) | Publish IPC bus deep-dive | 掘金 | ⏳ draft on disk |
+| Day 3 (2026-04-23) | Twitter thread (EN) for IPC bus post | Twitter/X | ✅ posted |
+| Day 3 (2026-04-23) | 中文 thread for IPC bus post | 微博/即刻/中文 X | ✅ posted |
 | Day 2/3 | Show HN | Hacker News | ⏳ not posted yet |
 | Day 2/3 | Post to r/kubernetes + r/selfhosted | Reddit | ⏳ not posted yet |
 | Day 3 | LinkedIn long post | LinkedIn | ⏳ not posted yet |
@@ -195,6 +197,7 @@ Looking for feedback on the IPC bus design and the runtime adapter pattern.
 | Forks | 4 | 4 | 15 | 40 |
 | External PRs merged | 3 | 4 | 5 | 15 |
 | Articles published | 0 | 5 (2 DevTo + 2 知乎 + 1 掘金) | — | — |
+| Social threads posted | 0 | 2 (EN + CN for IPC bus post) | — | — |
 | HN points | — | — (not yet posted) | 30 | — |
 
 ---
@@ -214,7 +217,8 @@ Looking for feedback on the IPC bus design and the runtime adapter pattern.
 - [x] Zhihu cover candidates: `/tmp/zhihu-cover-*.png` (900×500)
 - [x] Codespaces config: `.devcontainer/`
 - [x] Quick start guide: `config/samples/quickstart/README.md`
-- [x] Twitter thread template: in this file above
+- [x] Twitter thread (EN) file: `docs/articles/twitter-thread-ipc-bus.md` — **posted 2026-04-23**
+- [x] Twitter/Weibo thread (CN) file: `docs/articles/weibo-thread-ipc-bus.md` — **posted 2026-04-23**
 - [x] Show HN template: in this file above (updated 2026-04-23)
 - [x] Reddit template: in this file above (updated 2026-04-23)
 - [x] Good first issues: #4
