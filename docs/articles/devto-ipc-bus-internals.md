@@ -3,6 +3,7 @@ title: "Building an IPC bus for Kubernetes sidecars: WAL, DLQ, and ring-buffer b
 published: false
 description: "How the k8s4claw IPC bus routes messages between channel sidecars and an AI agent runtime with at-least-once delivery, four wire protocols, and four layers of reliability."
 tags: kubernetes, go, opensource, distributedsystems
+series: "k8s4claw internals"
 cover_image:
 ---
 
