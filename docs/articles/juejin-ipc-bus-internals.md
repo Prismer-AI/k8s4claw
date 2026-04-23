@@ -164,13 +164,15 @@ for {
 
 这个机制是整个 bus 存在的意义。
 
-channel sidecar 发来一条消息后，bus 按顺序做三件事：
+channel sidecar 发来一条消息后，router 做三件事：
 
-1. 写一条 WAL 记录到磁盘（emptyDir 支撑）。
-2. 通过 runtime bridge 把消息转发给 runtime。
-3. runtime ack 后标记 WAL 记录为 complete。
+1. 写一条 `pending` 状态的 WAL 记录到磁盘（emptyDir 支撑）。
+2. 调用 `bridge.Send(ctx, msg)` 把消息交给 runtime bridge。
+3. 只要 `Send` 返回成功就立刻标 complete；失败则走 `scheduleRetry`。
 
-如果 bus 在第 2 和第 3 步之间崩了，重启后它读 WAL，看到记录不是 complete，就重放。这就是 at-least-once 投递。
+**按"传输成功"标完成，不按"runtime ack"**。我们考虑过 runtime ack 的往返，最后没做：它让往返翻倍，每个 runtime 都要实现 ack 语义，而且我们的 `Message.ID` 本身就支持幂等——下游重试是安全的。如果消息顺利离开 `bridge.Send` 后 runtime 处理前就崩了，这一条我们会丢。取舍：对聊天 agent 可以接受，**对支付系统不行**。不同系统，不同的总线。
+
+`scheduleRetry` 会把 WAL 记录的 `Attempts` 加 1。达到 `maxRetryAttempts = 5` 后标记为 `dlq`，副本进 DLQ。
 
 WAL 是一个 JSON-lines 文件，每行是一条 `WALEntry`：
 
@@ -196,11 +198,12 @@ func (w *WAL) Compact() error {
 }
 
 func (w *WAL) NeedsCompaction() bool {
-    // 只在文件 > 10 MB 且 pending 比例 < 20% 时 compact
+    info, _ := w.file.Stat()
+    return info.Size() > compactionThreshold // 10 MB
 }
 ```
 
-我们不会每次 `Complete` 都 compact——那样吞吐会崩。主循环里有个 60 秒 ticker 检查 `NeedsCompaction()`，只在文件很大且大部分都是死记录时才重写。稳态下开销接近 0。
+我们不会每次 `Complete` 都 compact——那样吞吐会崩。`cmd/ipcbus` 二进制里有个 60 秒 ticker 调 `NeedsCompaction()`，文件超过 10 MB 就重写。判据粗糙——即使大部分还是 `pending` 也会 compact，浪费一点 IO——但简单、稳态开销接近 0。如果想做更聪明的策略（先看 `pending` 比例再决定要不要写），这是个不错的第一个 PR 切入点。
 
 WAL 的每次 append 不做 fsync。我们做批处理。如果节点硬挂，会丢最后几百毫秒的消息。对我们来说这是可接受的折中——上游 Slack 投递本来就是尽力而为的。如果你更在意持久性，`Flush()` 是暴露出来的，你可以自己调，但我们没做自动化。
 
@@ -220,7 +223,7 @@ BoltDB 是 [B+tree 嵌入式 KV](https://github.com/etcd-io/bbolt)。快、事�
 两种淘汰策略：
 
 - **maxSize**：条目数硬上限。满了就淘汰最旧的。
-- **ttl**：超过 TTL（默认 24 小时）的记录被后台 ticker 清理。
+- **ttl**：超过 TTL 的记录被清理。`NewDLQ(path, maxSize, ttl)` 两个参数都在构造函数里；`cmd/ipcbus` 二进制默认传 `maxSize=10000, ttl=24h` 并跑一个小时一次的 `PurgeExpired` ticker。库的使用者可以自己选。
 
 这事重要是因为 DLQ 是 bus 的调试入口。出问题了？`kubectl exec` 进 sidecar，打开 BoltDB 文件，看最近 N 条。我们靠这个抓到过几个 bug，如果走"失败就丢"的路子根本看不到。
 
@@ -264,18 +267,18 @@ case TypeAck, TypeNack, TypeSlowDown, TypeResume,
 
 ## 优雅关闭
 
-优雅关闭是它自己的雷区。Pod 收到 SIGTERM 时：
+优雅关闭是它自己的雷区。SIGTERM 时 `cmd/ipcbus` 二进制会调 `ShutdownOrchestrator.Execute(ctx, drainTimeout)`，它做：
 
-1. Bus 停止接受新的入站消息。
-2. 给所有连接的 sidecar 发 `shutdown`。它们也停止接受。
-3. Bus 清空 in-flight 队列——把所有 `pending` 的 WAL 记录再转发一次。
-4. Flush WAL。
-5. 干净关闭 DLQ。
-6. 退出。
+1. 调 `router.SendShutdown()` ——告诉所有连接的 sidecar 别再发了。
+2. 每 100 ms 轮询 `router.ConnectedCount()`，所有 sidecar 都断开后立刻结束等待；否则最多等到 `drainTimeout`。
+3. Flush WAL（`wal.Flush()`）。
+4. 关闭 runtime bridge。
 
-我们有一个 5 秒的硬 grace window。如果 drain 在 5 秒内完成不了，剩下的 `pending` 记录会在下次启动时重放。
+`drainTimeout` 是调用方传入的参数，不是硬编码。当前二进制传 5 秒，但把它当库嵌入的人可以自己决定。关闭时还是 `pending` 的 WAL 记录会在下次启动时重放——这就是 WAL 存在的意义。
 
-整个流程在 [`shutdown.go`](https://github.com/Prismer-AI/k8s4claw/blob/main/internal/ipcbus/shutdown.go)，60 行，值得读。
+DLQ **不**由 orchestrator 负责关闭；进程退出时 BoltDB 的 mmap 会被 flush，足够用了。如果想更干净（比如嵌入式测试场景），自己加一行就行。
+
+Orchestrator 本身在 [`shutdown.go`](https://github.com/Prismer-AI/k8s4claw/blob/main/internal/ipcbus/shutdown.go)，约 60 行，值得读。
 
 ## 故意没做的（也很重要）
 

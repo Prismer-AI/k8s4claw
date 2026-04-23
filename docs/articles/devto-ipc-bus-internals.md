@@ -174,13 +174,15 @@ for {
 
 This is the one that earns the bus the right to exist.
 
-When a message comes in from a channel sidecar, the bus does three things in order:
+When a message comes in from a channel sidecar, the router does three things:
 
-1. Append a WAL entry to disk (emptyDir-backed).
-2. Forward the message to the runtime bridge.
-3. Mark the WAL entry complete when the runtime acknowledges.
+1. Append a WAL entry to disk (emptyDir-backed) with state `pending`.
+2. Call `bridge.Send(ctx, msg)` to hand it off to the runtime bridge.
+3. Mark the WAL entry complete as soon as `Send` returns success. If `Send` fails, call `scheduleRetry`.
 
-If the bus crashes between steps 2 and 3, on restart it reads the WAL, sees the entry is not marked complete, and replays. This is at-least-once delivery.
+We delivery-mark on *transport success* (the bridge accepted the bytes), not on runtime ack. We considered a runtime-ack round-trip and decided against it: it doubles round-trips, forces every runtime to implement ack semantics, and our `Message.ID` is already idempotency-safe so downstream retries aren't harmful. If a message leaves `bridge.Send` OK but the runtime crashes before processing it, we lose that one message. Tradeoff: acceptable for a chat agent, *not* acceptable for a payment system. Different design calls, different bus.
+
+`scheduleRetry` increments `Attempts` on the WAL entry. After `maxRetryAttempts = 5`, the entry is marked `dlq` and a copy is parked in the DLQ.
 
 The WAL is a JSON-lines file. Each line is a `WALEntry`:
 
@@ -207,11 +209,12 @@ func (w *WAL) Compact() error {
 }
 
 func (w *WAL) NeedsCompaction() bool {
-    // Compact when file > 10 MB AND pending ratio < 20%.
+    info, _ := w.file.Stat()
+    return info.Size() > compactionThreshold  // 10 MB
 }
 ```
 
-We don't compact on every `Complete` call — that would tank throughput. We have a ticker in the main loop that checks `NeedsCompaction()` every 60 seconds and only rewrites when the file is large *and* mostly dead entries. This keeps steady-state overhead near zero.
+We don't compact on every `Complete` call — that would tank throughput. The `cmd/ipcbus` binary runs a 60-second ticker that checks `NeedsCompaction()` and rewrites the file when it grows past 10 MB. That's a coarse heuristic — it will compact even if most entries are still `pending`, wasting some I/O — but it's simple and steady-state overhead is near zero. A smarter policy (also consider the `pending` ratio, pre-commit) would be a reasonable first PR.
 
 The WAL does not fsync on every append. We batch. If a node hard-kills, we can lose the last few hundred milliseconds of messages. That's an acceptable tradeoff for a system where the upstream Slack delivery is already best-effort. If you care more about durability, `Flush()` is exposed and you can call it from your own code, but we chose not to make it automatic.
 
@@ -231,7 +234,7 @@ BoltDB is [embedded KV storage with B+tree on-disk layout](https://github.com/et
 Two eviction policies:
 
 - **maxSize** — a hard cap on entry count. When we're full, we evict the oldest.
-- **ttl** — entries older than the TTL (default 24 hours) are purged by a background ticker.
+- **ttl** — entries older than the TTL are purged. `NewDLQ(path, maxSize, ttl)` takes both as constructor args; the `cmd/ipcbus` binary passes `maxSize=10000, ttl=24h` and runs an hourly `PurgeExpired` ticker. Library callers can pick their own.
 
 This matters because the DLQ is the debugging surface for the bus. Something went wrong? `kubectl exec` into the sidecar, open the BoltDB file, and look at the last N entries. We've caught a couple of real bugs this way that would have been invisible with "drop on failure."
 
@@ -275,18 +278,18 @@ Treating control traffic as just another `MessageType` means channel sidecars do
 
 ## Shutdown
 
-Graceful shutdown is its own hazard. When the pod gets SIGTERM:
+Graceful shutdown is its own hazard. On SIGTERM the `cmd/ipcbus` binary wires `ShutdownOrchestrator.Execute(ctx, drainTimeout)`, which:
 
-1. The bus stops accepting new inbound messages.
-2. It sends `shutdown` to all connected sidecars. They also stop accepting.
-3. The bus drains its in-flight queue — tries to forward every `pending` WAL entry to the runtime one last time.
-4. It flushes the WAL.
-5. It closes the DLQ cleanly.
-6. Exit.
+1. Calls `router.SendShutdown()` — tells every connected sidecar to stop sending.
+2. Polls `router.ConnectedCount()` every 100 ms, exiting early if all sidecars disconnect before `drainTimeout` fires.
+3. Flushes the WAL (`wal.Flush()`).
+4. Closes the runtime bridge.
 
-We have a fixed 5-second grace window. If drain doesn't finish in 5 seconds, the remaining `pending` entries will be replayed on the next startup.
+`drainTimeout` is a caller-provided parameter, not hardcoded. The current binary sets it to 5 seconds, but a library embedder can pick whatever they want. Whatever is still marked `pending` in the WAL when we exit gets replayed on next startup — that's the whole point of the WAL.
 
-This whole thing is in [`shutdown.go`](https://github.com/Prismer-AI/k8s4claw/blob/main/internal/ipcbus/shutdown.go), 60 lines, worth reading.
+DLQ is not closed as part of the orchestrator; the process exit flushes BoltDB's mmap and that's enough. If you wanted cleaner teardown (say, for embedded testing), you'd add it.
+
+The orchestrator itself is in [`shutdown.go`](https://github.com/Prismer-AI/k8s4claw/blob/main/internal/ipcbus/shutdown.go), ~60 lines, worth reading.
 
 ## What we didn't do (on purpose)
 
