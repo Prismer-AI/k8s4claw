@@ -43,7 +43,7 @@ https://dev.to/willamhou/building-an-ipc-bus-for-kubernetes-sidecars-wal-dlq-and
 
 | 条 | 原始字符 | Twitter 计算 |
 |----|----------|--------------|
-| 1/3 | ~249 | ~158（URL 23） |
+| 1/3 | ~245 | ~158（URL 23） |
 | 2/3 | ~161 | ~161 |
 | 3/3 | ~153 | ~137（URL 23） |
 
