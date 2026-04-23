@@ -267,18 +267,21 @@ case TypeAck, TypeNack, TypeSlowDown, TypeResume,
 
 ## 优雅关闭
 
-优雅关闭是它自己的雷区。SIGTERM 时 `cmd/ipcbus` 二进制会调 `ShutdownOrchestrator.Execute(ctx, drainTimeout)`，它做：
+优雅关闭是它自己的雷区。SIGTERM 时 `cmd/ipcbus` 二进制跑一个本地 `shutdown()` 助手函数，做最基本的事：
 
-1. 调 `router.SendShutdown()` ——告诉所有连接的 sidecar 别再发了。
-2. 每 100 ms 轮询 `router.ConnectedCount()`，所有 sidecar 都断开后立刻结束等待；否则最多等到 `drainTimeout`。
-3. Flush WAL（`wal.Flush()`）。
-4. 关闭 runtime bridge。
+```go
+func shutdown(logger, router, wal, bridge, cancel) {
+    router.SendShutdown()       // 告诉 sidecar 要走了
+    time.Sleep(5 * time.Second) // 固定 grace window
+    wal.Flush()                 // Flush WAL
+    bridge.Close()              // 关 runtime bridge
+    cancel()                    // 停 UDS server 和后台 ticker
+}
+```
 
-`drainTimeout` 是调用方传入的参数，不是硬编码。当前二进制传 5 秒，但把它当库嵌入的人可以自己决定。关闭时还是 `pending` 的 WAL 记录会在下次启动时重放——这就是 WAL 存在的意义。
+就这么简单。不轮询、sidecar 提前断开也不会提前退出、也不关 DLQ（进程退出时 BoltDB 的 mmap 会被 flush，够用）。关闭时还是 `pending` 的 WAL 记录会在下次启动时重放——这就是 WAL 存在的意义。
 
-DLQ **不**由 orchestrator 负责关闭；进程退出时 BoltDB 的 mmap 会被 flush，足够用了。如果想更干净（比如嵌入式测试场景），自己加一行就行。
-
-Orchestrator 本身在 [`shutdown.go`](https://github.com/Prismer-AI/k8s4claw/blob/main/internal/ipcbus/shutdown.go)，约 60 行，值得读。
+库里还有一个更讲究的 `ShutdownOrchestrator`（在 [`internal/ipcbus/shutdown.go`](https://github.com/Prismer-AI/k8s4claw/blob/main/internal/ipcbus/shutdown.go)），接受 `drainTimeout` 参数，每 100 ms 轮询 `router.ConnectedCount()` 做真正的 wait-for-drain。当前二进制没有用它。不错的第一个 PR 切入点：把本地 helper 换成这个 orchestrator，把 sleep 换成真正的轮询。
 
 ## 故意没做的（也很重要）
 

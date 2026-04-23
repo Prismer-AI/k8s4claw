@@ -278,18 +278,21 @@ Treating control traffic as just another `MessageType` means channel sidecars do
 
 ## Shutdown
 
-Graceful shutdown is its own hazard. On SIGTERM the `cmd/ipcbus` binary wires `ShutdownOrchestrator.Execute(ctx, drainTimeout)`, which:
+Graceful shutdown is its own hazard. On SIGTERM the `cmd/ipcbus` binary runs a local `shutdown()` helper that does the bare minimum:
 
-1. Calls `router.SendShutdown()` — tells every connected sidecar to stop sending.
-2. Polls `router.ConnectedCount()` every 100 ms, exiting early if all sidecars disconnect before `drainTimeout` fires.
-3. Flushes the WAL (`wal.Flush()`).
-4. Closes the runtime bridge.
+```go
+func shutdown(logger, router, wal, bridge, cancel) {
+    router.SendShutdown()      // tell sidecars we're going away
+    time.Sleep(5 * time.Second) // fixed grace window
+    wal.Flush()                 // flush WAL to disk
+    bridge.Close()              // close the runtime bridge
+    cancel()                    // stop the UDS server + background tickets
+}
+```
 
-`drainTimeout` is a caller-provided parameter, not hardcoded. The current binary sets it to 5 seconds, but a library embedder can pick whatever they want. Whatever is still marked `pending` in the WAL when we exit gets replayed on next startup — that's the whole point of the WAL.
+That's it. No polling, no early exit if sidecars disconnect, no DLQ close (process-exit flushes BoltDB's mmap and that's enough). Whatever is still `pending` in the WAL when we exit gets replayed on next startup — that's the whole point of the WAL.
 
-DLQ is not closed as part of the orchestrator; the process exit flushes BoltDB's mmap and that's enough. If you wanted cleaner teardown (say, for embedded testing), you'd add it.
-
-The orchestrator itself is in [`shutdown.go`](https://github.com/Prismer-AI/k8s4claw/blob/main/internal/ipcbus/shutdown.go), ~60 lines, worth reading.
+There's also a fancier `ShutdownOrchestrator` in [`internal/ipcbus/shutdown.go`](https://github.com/Prismer-AI/k8s4claw/blob/main/internal/ipcbus/shutdown.go) that takes a `drainTimeout` parameter and polls `router.ConnectedCount()` every 100 ms to exit early, but the current binary doesn't wire it up. Good first PR: swap the local helper out for the orchestrator so the sleep becomes a real wait-for-drain.
 
 ## What we didn't do (on purpose)
 
