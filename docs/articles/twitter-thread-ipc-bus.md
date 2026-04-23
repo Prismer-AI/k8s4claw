@@ -15,7 +15,7 @@ Revised 2026-04-23 after codex review flagged: tweet 1 was 396 chars, tweet 2 wa
 ```text
 New post: how the in-pod IPC bus in k8s4claw works.
 
-Length-prefix JSON over WS/TCP/UDS/SSE. WAL on disk for crash recovery. BoltDB dead letter queue. Ring buffer with hysteresis for backpressure.
+Four wire protocols (WS/TCP/UDS/SSE) behind one 4-method interface. WAL on disk for crash recovery. BoltDB dead letter queue. Ring buffer with hysteresis for backpressure.
 
 https://dev.to/willamhou/building-an-ipc-bus-for-kubernetes-sidecars-wal-dlq-and-ring-buffer-backpressure-4b27
 ```
@@ -25,7 +25,7 @@ https://dev.to/willamhou/building-an-ipc-bus-for-kubernetes-sidecars-wal-dlq-and
 ```text
 Subtle bit: the WAL marks a message complete on bridge.Send() success, not on runtime ack.
 
-A runtime-ack round-trip doubles round-trips and forces every runtime to implement ack semantics. Message.ID is already idempotent.
+A runtime-ack round-trip doubles round-trips and forces every runtime to implement ack semantics. Message.ID gives consumers a dedupe key instead.
 
 Tradeoff we chose knowingly.
 ```
