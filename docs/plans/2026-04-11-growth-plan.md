@@ -22,7 +22,7 @@ Created: 2026-04-11 · Last updated: 2026-04-23
 | Post | EN (Dev.to) | ZH (Zhihu) | ZH (Juejin) | Status |
 |------|-------------|------------|-------------|--------|
 | **1. Intro: One CRD for AI agent runtimes** | [🔗 live](https://dev.to/willamhou/k8s4claw-a-kubernetes-operator-for-managing-ai-agent-runtimes-3anm) | ✅ published | ✅ published | Day 1 (2026-04-21) |
-| **2. IPC bus deep-dive** | ✅ published | ✅ published | draft on disk | Day 3 (2026-04-23) |
+| **2. IPC bus deep-dive** | [🔗 live](https://dev.to/willamhou/building-an-ipc-bus-for-kubernetes-sidecars-wal-dlq-and-ring-buffer-backpressure-4b27) | ✅ published | draft on disk | Day 3 (2026-04-23) |
 
 Both Dev.to posts carry `series: "k8s4claw internals"` so they nav-link on the site.
 
@@ -75,7 +75,7 @@ Auto-update controller polls OCI registries on cron, filters by semver, does
 health-verified rollouts with circuit-breaker rollback.
 
 Intro: https://dev.to/willamhou/k8s4claw-a-kubernetes-operator-for-managing-ai-agent-runtimes-3anm
-IPC bus internals: [Dev.to URL for post 2]
+IPC bus internals: https://dev.to/willamhou/building-an-ipc-bus-for-kubernetes-sidecars-wal-dlq-and-ring-buffer-backpressure-4b27
 
 Happy to answer questions about the IPC bus design, the runtime adapter pattern,
 or why the update state machine lives in annotations.
@@ -137,7 +137,7 @@ to first `kubectl get claws`.
 
 **Demo video (80s):** https://github.com/Prismer-AI/k8s4claw/releases/download/v0.1.0/demo-k8s.mp4
 **Writeup:** https://dev.to/willamhou/k8s4claw-a-kubernetes-operator-for-managing-ai-agent-runtimes-3anm
-**IPC bus internals:** [Dev.to URL for post 2]
+**IPC bus internals:** https://dev.to/willamhou/building-an-ipc-bus-for-kubernetes-sidecars-wal-dlq-and-ring-buffer-backpressure-4b27
 
 GitHub: https://github.com/Prismer-AI/k8s4claw
 
