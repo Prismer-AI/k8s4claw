@@ -45,7 +45,7 @@ https://dev.to/willamhou/building-an-ipc-bus-for-kubernetes-sidecars-wal-dlq-and
 |----|----------|--------------|
 | 1/3 | ~249 | ~158（URL 23） |
 | 2/3 | ~161 | ~161 |
-| 3/3 | ~184 | ~137（URL 23） |
+| 3/3 | ~153 | ~137（URL 23） |
 
 - **中文 X / Twitter**：全部 ≤280 ✓（URL 固定 23）
 - **即刻**：无压力（单条限制远高于此）
