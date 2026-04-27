@@ -1,10 +1,13 @@
 ---
 platform: Twitter / X
 purpose: Drive traffic to the Auto-update controller Dev.to deep-dive (Post 3 in k8s4claw internals series)
-status: draft
+status: posted
+posted_on: 2026-04-27
 ---
 
 # Twitter/X thread — Auto-update controller deep-dive promo
+
+> **Status: ✅ POSTED on 2026-04-27.** This file is now an archive of the published thread. Do not re-post; reference it when drafting future threads (same 3-beat structure, same codex-fact-check workflow).
 
 Three tweets. All under 280 chars (X counts each URL as 23 chars regardless of length).
 
@@ -15,7 +18,7 @@ New post: how the auto-update controller in k8s4claw works.
 
 One annotation drives the rollout. Cron-driven OCI tag polling, semver-filtered. Health gate on UpdatedReplicas + ReadyReplicas. Auto-rollback on timeout. Circuit breaker after 3 strikes.
 
-https://dev.to/willamhou/auto-updating-kubernetes-workloads-an-annotation-driven-rollout-with-circuit-breaker
+https://dev.to/willamhou/auto-updating-kubernetes-workloads-an-annotation-driven-rollout-with-circuit-breaker-280o
 ```
 
 ## Tweet 2/3 (technical hook)

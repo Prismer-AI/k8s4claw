@@ -23,7 +23,7 @@ Created: 2026-04-11 · Last updated: 2026-04-23
 |------|-------------|------------|-------------|--------|
 | **1. Intro: One CRD for AI agent runtimes** | [🔗 live](https://dev.to/willamhou/k8s4claw-a-kubernetes-operator-for-managing-ai-agent-runtimes-3anm) | ✅ published | ✅ published | Day 1 (2026-04-21) |
 | **2. IPC bus deep-dive** | [🔗 live](https://dev.to/willamhou/building-an-ipc-bus-for-kubernetes-sidecars-wal-dlq-and-ring-buffer-backpressure-4b27) | ✅ published | draft on disk | Day 3 (2026-04-23) |
-| **3. Auto-update controller deep-dive** | draft on disk (codex-clean) | draft on disk (codex-clean) | draft on disk (codex-clean) | Day 7 (2026-04-27) |
+| **3. Auto-update controller deep-dive** | ✅ published | ✅ published | ✅ published | Day 7 (2026-04-27) |
 
 Both Dev.to posts carry `series: "k8s4claw internals"` so they nav-link on the site.
 
@@ -220,9 +220,11 @@ Looking for feedback on the IPC bus design and the runtime adapter pattern.
 - [x] Quick start guide: `config/samples/quickstart/README.md`
 - [x] Twitter thread (EN) file: `docs/articles/twitter-thread-ipc-bus.md` — **posted 2026-04-23**
 - [x] Twitter/Weibo thread (CN) file: `docs/articles/weibo-thread-ipc-bus.md` — **posted 2026-04-23**
-- [x] Dev.to Post 3 (Auto-update): `docs/articles/devto-autoupdate-internals.md` — codex-clean, ready to publish
-- [x] Zhihu Post 3 (Auto-update): `docs/articles/zhihu-autoupdate-internals.md` — codex-clean, ready to publish
-- [x] Juejin Post 3 (Auto-update): `docs/articles/juejin-autoupdate-internals.md` — codex-clean, ready to publish
+- [x] Dev.to Post 3 (Auto-update): `docs/articles/devto-autoupdate-internals.md` — **published 2026-04-27**
+- [x] Zhihu Post 3 (Auto-update): `docs/articles/zhihu-autoupdate-internals.md` — **published 2026-04-27**
+- [x] Juejin Post 3 (Auto-update): `docs/articles/juejin-autoupdate-internals.md` — **published 2026-04-27**
+- [x] Twitter thread (EN) Post 3: `docs/articles/twitter-thread-autoupdate.md` — **posted 2026-04-27**
+- [x] Twitter/Weibo thread (CN) Post 3: `docs/articles/weibo-thread-autoupdate.md` — **posted 2026-04-27**
 - [x] Show HN template: in this file above (updated 2026-04-23)
 - [x] Reddit template: in this file above (updated 2026-04-23)
 - [x] Good first issues: #4
