@@ -9,10 +9,10 @@ The HermesRS adapter (see [internal/runtime/hermesrs.go](../../internal/runtime/
 expects:
 
 | Property | Value |
-|----------|-------|
+| --- | --- |
 | Binary path | `/usr/local/bin/hermes` |
-| Default command | `gateway run` |
-| Listen address | `0.0.0.0:8080` (configurable via `HERMES_GATEWAY_API_SERVER_BIND_ADDR`) |
+| Default command | `gateway` |
+| Listen address | `0.0.0.0:8080` (set in `config.yaml` under `gateway.api_server.bind_addr`) |
 | Health endpoint | `GET /health` |
 | Home directory | `/data` (`HERMES_HOME`) |
 | Workspace path | `/data/skills` |
@@ -38,6 +38,31 @@ git submodule or `cargo vendor`), then:
 docker build -f runtimes/hermesrs/Dockerfile \
   -t hermesrs:dev runtimes/hermesrs/
 ```
+
+## Configuration
+
+The binary requires a YAML config file at `$HERMES_HOME/config.yaml`
+(default: `/data/config.yaml`). Pure environment variables are NOT sufficient
+to enable the gateway; the YAML must explicitly enable `gateway.api_server`.
+
+A minimal example is at [config.example.yaml](config.example.yaml). To run
+locally with a Kimi-via-new-api proxy:
+
+```bash
+docker run -d --name hermesrs \
+  -e OPENAI_API_KEY="$YOUR_KEY" \
+  -v $(pwd)/runtimes/hermesrs/config.example.yaml:/data/config.yaml:ro \
+  -p 8080:8080 \
+  ghcr.io/prismer-ai/hermes-agent-rs:latest
+
+curl http://localhost:8080/health
+curl -X POST http://localhost:8080/v1/chat/completions \
+  -H 'Content-Type: application/json' \
+  -d '{"model":"openai/claude-sonnet-4-20250514","messages":[{"role":"user","content":"hi"}]}'
+```
+
+When deployed via the HermesRS Claw adapter, the operator generates a ConfigMap
+from `spec.config` and mounts it at `/data/config.yaml`.
 
 ## CI / release
 

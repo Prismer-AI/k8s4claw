@@ -20,7 +20,8 @@ ARG HERMES_REPO=
 ARG HERMES_REF=main
 
 # ---------- Builder ----------
-FROM rust:1.86-bookworm AS builder
+# rust 1.88+ required: hermes-agent-rs deps (home, time) need rustc >= 1.88.
+FROM rust:1.88-bookworm AS builder
 
 WORKDIR /workspace
 
@@ -68,4 +69,4 @@ ENV HERMES_HOME=/data \
     RUST_LOG=info
 
 ENTRYPOINT ["/usr/local/bin/hermes"]
-CMD ["gateway", "run"]
+CMD ["gateway"]
