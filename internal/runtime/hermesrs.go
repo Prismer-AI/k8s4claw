@@ -31,7 +31,7 @@ func (a *HermesRSAdapter) runtimeSpec(_ *v1alpha1.Claw) *RuntimeSpec {
 	return &RuntimeSpec{
 		Image:     "ghcr.io/prismer-ai/hermes-agent-rs:latest",
 		Command:   []string{"/usr/local/bin/hermes"},
-		Args:      []string{"gateway", "run"},
+		Args:      []string{"gateway"},
 		Ports:     []corev1.ContainerPort{{Name: "gateway", ContainerPort: hermesRSGatewayPort, Protocol: corev1.ProtocolTCP}},
 		Resources: resources("250m", "512Mi", "2000m", "4Gi"),
 		Env: []corev1.EnvVar{

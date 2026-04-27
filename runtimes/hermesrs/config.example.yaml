@@ -1,0 +1,32 @@
+# Minimal hermes-agent-rs config for the API server gateway.
+#
+# Mount this file at $HERMES_HOME/config.yaml inside the Pod (default: /data/config.yaml).
+# In a Claw CR, use a ConfigMap reference via spec.config.
+#
+# Provider routing:
+#   - "openai/<model>"       → uses OPENAI_API_KEY (or HERMES_API_KEY fallback)
+#                              + base_url for OpenAI-compatible proxies (new-api,
+#                              one-api, OpenRouter, etc.)
+#   - "anthropic/<model>"    → uses ANTHROPIC_API_KEY
+#   - bare "<model>"         → defaults to OpenAI provider
+#
+# Override at runtime via env: OPENAI_BASE_URL, OPENAI_API_KEY, etc.
+
+model: openai/claude-sonnet-4-20250514
+
+# Optional: override provider base URL (for new-api / one-api / etc.)
+# base_url: https://your-newapi.example.com/v1
+
+gateway:
+  api_server:
+    bind_addr: "0.0.0.0:8080"
+    # Optional bearer token required on incoming requests.
+    # api_key: "${HERMES_API_KEY}"
+
+# Other knobs available — see hermes-agent-rs config.example.yaml upstream:
+#   max_iterations: 90
+#   temperature: 0.7
+#   approval:
+#     policy: ask
+#   signet:
+#     enabled: true
