@@ -73,7 +73,16 @@ func (c *HermesGatewayClient) Analyze(ctx context.Context, prompt string) (strin
 		return "", "", fmt.Errorf("failed to marshal request: %w", err)
 	}
 
-	url := strings.TrimRight(c.BaseURL, "/") + "/v1/chat/completions"
+	// Build URL: tolerate BaseURL with or without `/v1` suffix.
+	// Examples accepted:
+	//   https://api.openai.com           → https://api.openai.com/v1/chat/completions
+	//   https://api.openai.com/v1        → https://api.openai.com/v1/chat/completions
+	//   http://newapi.example.com:3000/v1 → http://newapi.example.com:3000/v1/chat/completions
+	base := strings.TrimRight(c.BaseURL, "/")
+	url := base + "/v1/chat/completions"
+	if strings.HasSuffix(base, "/v1") {
+		url = base + "/chat/completions"
+	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(body))
 	if err != nil {
 		return "", "", fmt.Errorf("failed to build request: %w", err)

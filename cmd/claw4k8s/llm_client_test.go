@@ -277,6 +277,40 @@ ACTION: {"action":"bump-memory","params":{"target":"768Mi"},"generation":1,"sour
 	assert.NotEqual(t, int64(1), int64(gen), "LLM-provided generation=1 must be overwritten")
 }
 
+// ---------------------------------------------------------------------------
+// BaseURL — accept with or without /v1 suffix
+// ---------------------------------------------------------------------------
+
+func TestAnalyze_BaseURLWithV1Suffix(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name     string
+		basePath string // path appended to test server URL to form BaseURL
+	}{
+		{"no /v1 suffix", ""},
+		{"/v1 suffix", "/v1"},
+		{"/v1/ trailing slash", "/v1/"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			var gotPath string
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				gotPath = r.URL.Path
+				w.Header().Set("Content-Type", "application/json")
+				_, _ = w.Write([]byte(`{"choices":[{"message":{"role":"assistant","content":"ok"}}]}`))
+			}))
+			defer srv.Close()
+
+			client := newTestClient(srv.URL+tt.basePath, "test", "x", 5*time.Second)
+			_, _, err := client.Analyze(context.Background(), "prompt")
+			require.NoError(t, err)
+			assert.Equal(t, "/v1/chat/completions", gotPath,
+				"path must always resolve to /v1/chat/completions regardless of BaseURL suffix")
+		})
+	}
+}
+
 func TestAnalyze_NilHTTPClient(t *testing.T) {
 	t.Parallel()
 	// Direct construction without buildLLMClient — should fail with clear error
