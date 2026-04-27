@@ -1,10 +1,13 @@
 ---
 platform: Twitter / X
 purpose: Drive traffic to the IPC bus Dev.to deep-dive (Post 2 in k8s4claw internals series)
-target_post_time: Beijing 22:00–24:00 (US Pacific 07:00–09:00)
+status: posted
+posted_on: 2026-04-23
 ---
 
 # Twitter/X thread — IPC bus deep-dive promo
+
+> **Status: ✅ POSTED on 2026-04-23.** This file is now an archive of the published thread. Do not re-post; reference it when drafting future threads (same 3-beat structure, same codex-fact-check workflow).
 
 Three tweets. All under 280 chars (X counts each URL as 23 chars regardless of length).
 
@@ -25,7 +28,7 @@ https://dev.to/willamhou/building-an-ipc-bus-for-kubernetes-sidecars-wal-dlq-and
 ```text
 Subtle bit: the WAL marks a message complete on bridge.Send() success, not on runtime ack.
 
-A runtime-ack round-trip doubles round-trips and forces every runtime to implement ack semantics. Message.ID gives consumers a dedupe key instead.
+A runtime-ack round-trip doubles round-trips and forces every runtime to implement ack semantics. Message.ID gives consumers a dedupe key instead   .
 
 Tradeoff we chose knowingly.
 ```
