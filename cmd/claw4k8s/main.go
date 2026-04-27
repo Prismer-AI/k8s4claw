@@ -3,9 +3,11 @@ package main
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/go-logr/logr"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -76,31 +78,52 @@ func main() {
 	logger.Info("companion claw stopped")
 }
 
-// noopLLMClient is a placeholder LLM client that always returns a fallback.
+// noopLLMClient is a placeholder LLM client that returns immediately so the
+// pipeline's fallback path runs without burning the retry/backoff budget.
+// Used when no LLM gateway is configured (LLM_GATEWAY_URL unset).
 type noopLLMClient struct{}
 
 func (n *noopLLMClient) Analyze(_ context.Context, _ string) (string, string, error) {
-	return "", "", fmt.Errorf("LLM client not configured")
+	// Return empty result with no error so pipeline.analyze immediately
+	// reaches its fallback branch (no retries, no delays).
+	return "", "", nil
 }
 
-// buildLLMClient returns a HermesGatewayClient when LLM_GATEWAY_URL is set,
-// or a noopLLMClient otherwise. Falling back to noop allows the watcher to
-// run in environments without an LLM (escalations transition to
-// AwaitingApproval with a fallback analysis from the pipeline).
+// buildLLMClient returns a HermesGatewayClient when CLAW4K8S_LLM_GATEWAY_URL
+// is set, or a noopLLMClient otherwise. Env var names are aligned with
+// internal/runtime/k8sops.go (CLAW4K8S_LLM_*).
+//
+// Falling back to noop allows the watcher to run in environments without an
+// LLM — escalations transition to AwaitingApproval with a fallback analysis
+// from the pipeline (no retry delays).
 func buildLLMClient(logger logr.Logger) LLMClient {
-	url := os.Getenv("LLM_GATEWAY_URL")
+	url := firstEnv("CLAW4K8S_LLM_GATEWAY_URL", "LLM_GATEWAY_URL")
 	if url == "" {
-		logger.Info("LLM_GATEWAY_URL not set, using noop LLM client (fallback-only mode)")
+		logger.Info("LLM gateway URL not set, using noop LLM client (instant fallback mode)")
 		return &noopLLMClient{}
 	}
-	model := os.Getenv("LLM_MODEL")
+	model := firstEnv("CLAW4K8S_LLM_MODEL", "LLM_MODEL")
 	if model == "" {
 		model = "anthropic/claude-sonnet-4-20250514"
 	}
+	apiKey := firstEnv("CLAW4K8S_LLM_API_KEY", "LLM_API_KEY")
 	logger.Info("configured Hermes gateway LLM client", "url", url, "model", model)
 	return &HermesGatewayClient{
-		BaseURL: url,
-		Model:   model,
-		APIKey:  os.Getenv("LLM_API_KEY"),
+		BaseURL:    url,
+		Model:      model,
+		APIKey:     apiKey,
+		httpClient: &http.Client{Timeout: 60 * time.Second},
 	}
+}
+
+// firstEnv returns the first non-empty value among the given environment
+// variable names. The first name is the canonical key (CLAW4K8S_*); later
+// names are accepted for backward compatibility.
+func firstEnv(keys ...string) string {
+	for _, k := range keys {
+		if v := os.Getenv(k); v != "" {
+			return v
+		}
+	}
+	return ""
 }

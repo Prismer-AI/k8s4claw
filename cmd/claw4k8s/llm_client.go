@@ -9,17 +9,23 @@ import (
 	"net/http"
 	"strings"
 	"time"
+
+	controller "github.com/Prismer-AI/k8s4claw/internal/controller"
 )
 
 // HermesGatewayClient calls an OpenAI-compatible /v1/chat/completions endpoint.
 // Works with hermes-agent-rs hermes-gateway, Anthropic API (via gateway model
 // prefix), or any OpenAI-compatible provider.
+//
+// Concurrency: HermesGatewayClient is safe for concurrent use as long as
+// httpClient is initialized at construction time (see buildLLMClient in main.go).
 type HermesGatewayClient struct {
-	BaseURL string        // e.g. "http://hermes-gateway.default.svc.cluster.local:8080"
-	Model   string        // e.g. "anthropic/claude-sonnet-4-20250514"
-	APIKey  string        // optional; sent as Bearer token if non-empty
-	Timeout time.Duration // per-request timeout (default 60s)
+	BaseURL string // e.g. "http://hermes-gateway.default.svc.cluster.local:8080"
+	Model   string // e.g. "anthropic/claude-sonnet-4-20250514"
+	APIKey  string // optional; sent as Bearer token if non-empty
 
+	// httpClient must be set by the caller (e.g., buildLLMClient). Never
+	// initialized lazily inside Analyze to avoid data races under concurrent use.
 	httpClient *http.Client
 }
 
@@ -45,14 +51,14 @@ type chatCompletionResponse struct {
 
 // Analyze sends the prompt to the chat completions endpoint and parses the
 // response into (analysis, action). The action JSON is expected after an
-// "ACTION:" marker or inside a ```json fenced block.
+// "ACTION:" marker or inside a ```json fenced block. The action JSON is
+// validated against the operator's ops-intent whitelist (allowed actions only)
+// before being returned; invalid actions are discarded and ("analysis", "")
+// is returned with a nil error so the escalation falls through to
+// AwaitingApproval.
 func (c *HermesGatewayClient) Analyze(ctx context.Context, prompt string) (string, string, error) {
-	timeout := c.Timeout
-	if timeout <= 0 {
-		timeout = 60 * time.Second
-	}
 	if c.httpClient == nil {
-		c.httpClient = &http.Client{Timeout: timeout}
+		return "", "", fmt.Errorf("failed to call gateway: httpClient is nil (use buildLLMClient)")
 	}
 
 	reqBody := chatCompletionRequest{
@@ -64,13 +70,13 @@ func (c *HermesGatewayClient) Analyze(ctx context.Context, prompt string) (strin
 	}
 	body, err := json.Marshal(reqBody)
 	if err != nil {
-		return "", "", fmt.Errorf("marshal request: %w", err)
+		return "", "", fmt.Errorf("failed to marshal request: %w", err)
 	}
 
 	url := strings.TrimRight(c.BaseURL, "/") + "/v1/chat/completions"
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(body))
 	if err != nil {
-		return "", "", fmt.Errorf("build request: %w", err)
+		return "", "", fmt.Errorf("failed to build request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
 	if c.APIKey != "" {
@@ -79,29 +85,62 @@ func (c *HermesGatewayClient) Analyze(ctx context.Context, prompt string) (strin
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		return "", "", fmt.Errorf("call gateway: %w", err)
+		return "", "", fmt.Errorf("failed to call gateway: %w", err)
 	}
 	defer resp.Body.Close()
 
 	respBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return "", "", fmt.Errorf("read response: %w", err)
+		return "", "", fmt.Errorf("failed to read response: %w", err)
 	}
 	if resp.StatusCode >= 400 {
-		return "", "", fmt.Errorf("gateway returned %d: %s", resp.StatusCode, truncate(string(respBytes), 256))
+		// Note: response body is intentionally NOT included to avoid leaking
+		// API keys or other sensitive data that some proxies echo back.
+		return "", "", fmt.Errorf("failed gateway request: status %d", resp.StatusCode)
 	}
 
 	var parsed chatCompletionResponse
 	if err := json.Unmarshal(respBytes, &parsed); err != nil {
-		return "", "", fmt.Errorf("decode response: %w", err)
+		return "", "", fmt.Errorf("failed to decode response: %w", err)
 	}
 	if len(parsed.Choices) == 0 {
-		return "", "", fmt.Errorf("gateway returned no choices")
+		return "", "", fmt.Errorf("failed to parse response: no choices returned")
 	}
 
 	content := parsed.Choices[0].Message.Content
-	analysis, action := extractAction(content)
-	return analysis, action, nil
+	analysis, rawAction := extractAction(content)
+
+	// If the LLM proposed an action, validate it against the ops-intent schema
+	// and stamp a server-side generation counter (LLM clocks are unreliable).
+	if rawAction != "" {
+		validated, err := validateAndStampAction(rawAction)
+		if err != nil {
+			// Invalid action — discard so the escalation falls through to
+			// AwaitingApproval rather than writing garbage to ops-intent.
+			return analysis, "", nil
+		}
+		return analysis, validated, nil
+	}
+	return analysis, "", nil
+}
+
+// validateAndStampAction validates the raw LLM action JSON against the
+// ops-intent schema and overwrites the generation field with a server-side
+// timestamp (LLMs cannot produce reliable monotonic timestamps).
+func validateAndStampAction(raw string) (string, error) {
+	intent, err := controller.ValidateIntent(raw)
+	if err != nil {
+		return "", err
+	}
+	intent.Generation = time.Now().UnixMilli()
+	if intent.Source == "" {
+		intent.Source = "companion-claw"
+	}
+	out, err := json.Marshal(intent)
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal validated intent: %w", err)
+	}
+	return string(out), nil
 }
 
 // companionSystemPrompt instructs the model to produce an analysis followed by
@@ -115,19 +154,27 @@ Given an incident (OOMKilled, CrashLoopBackOff, etc.), produce:
 Allowed actions: bump-memory, bump-cpu, restart-pod, rollout-restart, scale-replicas.
 
 Action JSON format:
-{"action":"<action>","params":{...},"generation":<unix-millis>,"source":"companion-claw"}
+{"action":"<action>","params":{...},"source":"companion-claw"}
 
-If you cannot determine a safe action, omit the ACTION marker entirely. Never invent
-actions outside the allowlist.`
+Required params:
+- bump-memory: {"target": "<size>"}        e.g. "768Mi", "2Gi"
+- bump-cpu:    {"target": "<cpu>"}         e.g. "500m", "2"
+- scale-replicas: {"replicas": "<count>"}  e.g. "3"
+- restart-pod, rollout-restart: no params required (use {})
+
+The "generation" field will be added by the operator — do not include it.
+
+If you cannot determine a safe action, omit the ACTION marker entirely. Never
+invent actions outside the allowlist.`
 
 // extractAction splits an LLM response into (analysis, action JSON).
 // Looks for "ACTION:" marker first, then ```json fenced block as fallback.
-// Returns ("", "") if no action found, with full content as analysis.
+// Returns (content, "") if no action found.
 func extractAction(content string) (string, string) {
 	// Try ACTION: marker first.
-	if idx := strings.Index(content, "ACTION:"); idx >= 0 {
-		analysis := strings.TrimSpace(content[:idx])
-		raw := strings.TrimSpace(content[idx+len("ACTION:"):])
+	if before, after, ok := strings.Cut(content, "ACTION:"); ok {
+		analysis := strings.TrimSpace(before)
+		raw := strings.TrimSpace(after)
 		raw = stripFences(raw)
 		if isValidJSONObject(raw) {
 			return analysis, raw
@@ -136,13 +183,11 @@ func extractAction(content string) (string, string) {
 	}
 
 	// Fallback: look for ```json ... ``` block.
-	if start := strings.Index(content, "```json"); start >= 0 {
-		rest := content[start+len("```json"):]
-		if end := strings.Index(rest, "```"); end >= 0 {
-			raw := strings.TrimSpace(rest[:end])
+	if before, after, ok := strings.Cut(content, "```json"); ok {
+		if inner, _, ok2 := strings.Cut(after, "```"); ok2 {
+			raw := strings.TrimSpace(inner)
 			if isValidJSONObject(raw) {
-				analysis := strings.TrimSpace(content[:start])
-				return analysis, raw
+				return strings.TrimSpace(before), raw
 			}
 		}
 	}
@@ -163,12 +208,4 @@ func stripFences(s string) string {
 func isValidJSONObject(s string) bool {
 	var m map[string]any
 	return json.Unmarshal([]byte(s), &m) == nil
-}
-
-// truncate clips a string to maxLen characters, adding an ellipsis.
-func truncate(s string, maxLen int) string {
-	if len(s) <= maxLen {
-		return s
-	}
-	return s[:maxLen] + "..."
 }

@@ -23,6 +23,17 @@ type fakeChatHandler struct {
 	gotAuth     string
 }
 
+// newTestClient returns a HermesGatewayClient with an eagerly-initialized
+// httpClient — mirrors how buildLLMClient constructs it in production.
+func newTestClient(baseURL, model, apiKey string, timeout time.Duration) *HermesGatewayClient {
+	return &HermesGatewayClient{
+		BaseURL:    baseURL,
+		Model:      model,
+		APIKey:     apiKey,
+		httpClient: &http.Client{Timeout: timeout},
+	}
+}
+
 func (h *fakeChatHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	h.gotAuth = r.Header.Get("Authorization")
 
@@ -70,12 +81,7 @@ ACTION: {"action":"bump-memory","params":{"target":"768Mi"},"generation":1,"sour
 	srv := httptest.NewServer(handler)
 	defer srv.Close()
 
-	client := &HermesGatewayClient{
-		BaseURL: srv.URL,
-		Model:   "anthropic/claude-sonnet-4",
-		APIKey:  "sk-test",
-		Timeout: 5 * time.Second,
-	}
+	client := newTestClient(srv.URL, "anthropic/claude-sonnet-4", "sk-test", 5*time.Second)
 
 	analysis, action, err := client.Analyze(context.Background(), "trigger: OOMKilled")
 	require.NoError(t, err)
@@ -98,7 +104,7 @@ func TestHermesGatewayClient_Analyze_NoActionInResponse(t *testing.T) {
 	srv := httptest.NewServer(handler)
 	defer srv.Close()
 
-	client := &HermesGatewayClient{BaseURL: srv.URL, Model: "test", APIKey: "x", Timeout: 5 * time.Second}
+	client := newTestClient(srv.URL, "test", "x", 5*time.Second)
 	analysis, action, err := client.Analyze(context.Background(), "prompt")
 	require.NoError(t, err)
 	assert.Contains(t, analysis, "Manual review")
@@ -114,7 +120,7 @@ func TestHermesGatewayClient_Analyze_NoAPIKey(t *testing.T) {
 	srv := httptest.NewServer(handler)
 	defer srv.Close()
 
-	client := &HermesGatewayClient{BaseURL: srv.URL, Model: "test", Timeout: 5 * time.Second}
+	client := newTestClient(srv.URL, "test", "", 5*time.Second)
 	_, _, err := client.Analyze(context.Background(), "prompt")
 	require.NoError(t, err)
 	assert.Empty(t, handler.gotAuth, "no API key → no Authorization header")
@@ -131,7 +137,7 @@ func TestHermesGatewayClient_Analyze_HTTPError(t *testing.T) {
 	srv := httptest.NewServer(handler)
 	defer srv.Close()
 
-	client := &HermesGatewayClient{BaseURL: srv.URL, Model: "test", APIKey: "x", Timeout: 5 * time.Second}
+	client := newTestClient(srv.URL, "test", "x", 5*time.Second)
 	_, _, err := client.Analyze(context.Background(), "prompt")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "500")
@@ -144,7 +150,7 @@ func TestHermesGatewayClient_Analyze_MalformedJSON(t *testing.T) {
 	srv := httptest.NewServer(handler)
 	defer srv.Close()
 
-	client := &HermesGatewayClient{BaseURL: srv.URL, Model: "test", APIKey: "x", Timeout: 5 * time.Second}
+	client := newTestClient(srv.URL, "test", "x", 5*time.Second)
 	_, _, err := client.Analyze(context.Background(), "prompt")
 	require.Error(t, err)
 }
@@ -157,7 +163,7 @@ func TestHermesGatewayClient_Analyze_EmptyChoices(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	client := &HermesGatewayClient{BaseURL: srv.URL, Model: "test", APIKey: "x", Timeout: 5 * time.Second}
+	client := newTestClient(srv.URL, "test", "x", 5*time.Second)
 	_, _, err := client.Analyze(context.Background(), "prompt")
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "no choices")
@@ -171,7 +177,7 @@ func TestHermesGatewayClient_Analyze_ContextCancel(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	client := &HermesGatewayClient{BaseURL: srv.URL, Model: "test", APIKey: "x", Timeout: 30 * time.Second}
+	client := newTestClient(srv.URL, "test", "x", 30*time.Second)
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel() // cancel before sending
 
@@ -217,4 +223,66 @@ func TestExtractAction_InvalidJSON(t *testing.T) {
 	content := "ACTION: not a json object at all"
 	_, action := extractAction(content)
 	assert.Empty(t, action, "non-JSON action must be discarded")
+}
+
+// ---------------------------------------------------------------------------
+// validateAndStampAction — schema validation + server-stamped generation
+// ---------------------------------------------------------------------------
+
+func TestAnalyze_ValidatesActionAgainstAllowlist(t *testing.T) {
+	t.Parallel()
+	// LLM proposes an unknown action — must be discarded, escalation falls
+	// through to AwaitingApproval.
+	handler := &fakeChatHandler{
+		respContent: `analysis here
+
+ACTION: {"action":"delete-namespace","params":{},"source":"companion-claw"}`,
+	}
+	srv := httptest.NewServer(handler)
+	defer srv.Close()
+
+	client := newTestClient(srv.URL, "test", "x", 5*time.Second)
+	analysis, action, err := client.Analyze(context.Background(), "prompt")
+	require.NoError(t, err)
+	assert.Contains(t, analysis, "analysis here")
+	assert.Empty(t, action, "unknown action must be discarded")
+}
+
+func TestAnalyze_StampsServerGeneration(t *testing.T) {
+	t.Parallel()
+	// LLM provides generation=1 (low/hallucinated). Server overwrites with
+	// time.Now().UnixMilli() so replay protection works correctly.
+	handler := &fakeChatHandler{
+		respContent: `analysis
+
+ACTION: {"action":"bump-memory","params":{"target":"768Mi"},"generation":1,"source":"companion-claw"}`,
+	}
+	srv := httptest.NewServer(handler)
+	defer srv.Close()
+
+	before := time.Now().UnixMilli()
+	client := newTestClient(srv.URL, "test", "x", 5*time.Second)
+	_, action, err := client.Analyze(context.Background(), "prompt")
+	after := time.Now().UnixMilli()
+	require.NoError(t, err)
+	require.NotEmpty(t, action)
+
+	// Re-parse and check generation is server-stamped (within [before, after]).
+	var parsed map[string]any
+	require.NoError(t, json.Unmarshal([]byte(action), &parsed))
+	gen, ok := parsed["generation"].(float64)
+	require.True(t, ok, "generation must be present")
+	assert.GreaterOrEqual(t, int64(gen), before, "generation should be >= before-call timestamp")
+	assert.LessOrEqual(t, int64(gen), after, "generation should be <= after-call timestamp")
+	assert.NotEqual(t, int64(1), int64(gen), "LLM-provided generation=1 must be overwritten")
+}
+
+func TestAnalyze_NilHTTPClient(t *testing.T) {
+	t.Parallel()
+	// Direct construction without buildLLMClient — should fail with clear error
+	// rather than racing on lazy init.
+	client := &HermesGatewayClient{BaseURL: "http://x", Model: "y"}
+	_, _, err := client.Analyze(context.Background(), "prompt")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "httpClient is nil")
 }
