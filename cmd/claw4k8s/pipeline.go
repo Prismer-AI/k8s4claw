@@ -32,6 +32,13 @@ func (p *Pipeline) analyze(ctx context.Context, esc *v1alpha1.ClawOpsEscalation)
 	for i := 0; i < retries; i++ {
 		analysis, action, err = p.LLM.Analyze(ctx, prompt)
 		if err == nil {
+			// Empty result with no error means the client signalled "no LLM
+			// available" (e.g. noopLLMClient). Skip retries and fall through
+			// to the synthetic fallback so escalations still surface useful
+			// context for human review.
+			if analysis == "" && action == "" {
+				break
+			}
 			return analysis, action, nil
 		}
 		if i < len(delays) && i < retries-1 {

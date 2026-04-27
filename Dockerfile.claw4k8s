@@ -1,0 +1,20 @@
+FROM golang:1.25-alpine AS builder
+
+WORKDIR /workspace
+
+COPY go.mod go.sum ./
+RUN go mod download
+
+COPY . .
+RUN CGO_ENABLED=0 GOOS=linux go build -a \
+    -o claw4k8s ./cmd/claw4k8s/
+
+FROM gcr.io/distroless/static:nonroot
+
+WORKDIR /
+
+COPY --from=builder /workspace/claw4k8s .
+
+USER 65532:65532
+
+ENTRYPOINT ["/claw4k8s"]

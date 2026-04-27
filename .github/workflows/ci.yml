@@ -119,6 +119,7 @@ jobs:
       matrix:
         target:
           - { name: operator, file: Dockerfile, context: . }
+          - { name: claw4k8s, file: Dockerfile.claw4k8s, context: . }
           - { name: init, file: Dockerfile.init, context: . }
           - { name: ipcbus, file: Dockerfile.ipcbus, context: . }
           - { name: channel-slack, file: Dockerfile.channel-slack, context: . }

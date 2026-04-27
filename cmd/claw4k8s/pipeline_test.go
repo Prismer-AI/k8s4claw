@@ -69,3 +69,45 @@ func TestPipeline_LLMFailureFallback(t *testing.T) {
 	assert.Contains(t, analysis, "LLM analysis unavailable")
 	assert.Empty(t, action)
 }
+
+// countingLLMClient records how many times Analyze is invoked.
+type countingLLMClient struct {
+	calls    int
+	analysis string
+	action   string
+	err      error
+}
+
+func (c *countingLLMClient) Analyze(_ context.Context, _ string) (string, string, error) {
+	c.calls++
+	return c.analysis, c.action, c.err
+}
+
+// TestPipeline_NoopFallback verifies that an LLM client returning ("", "", nil)
+// (e.g. noopLLMClient when LLM_GATEWAY_URL is unset) skips retries and produces
+// a synthetic fallback analysis. Without this, the pipeline returned empty
+// analysis, leaving operators with no escalation context.
+func TestPipeline_NoopFallback(t *testing.T) {
+	llm := &countingLLMClient{} // returns ("", "", nil)
+	pipeline := &Pipeline{LLM: llm, MaxRetries: 3}
+
+	now := metav1.Now()
+	esc := &v1alpha1.ClawOpsEscalation{
+		Spec: v1alpha1.ClawOpsEscalationSpec{
+			Severity: v1alpha1.SeverityHigh,
+			Trigger: v1alpha1.TriggerInfo{
+				Type:      v1alpha1.TriggerOOMKilled,
+				Message:   "OOM",
+				FirstSeen: &now,
+				Count:     2,
+			},
+		},
+	}
+
+	analysis, action, err := pipeline.analyze(context.Background(), esc)
+	require.NoError(t, err)
+	assert.Contains(t, analysis, "LLM analysis unavailable",
+		"empty (no err) result must trigger synthetic fallback")
+	assert.Empty(t, action)
+	assert.Equal(t, 1, llm.calls, "noop signal must skip retries (1 call, not MaxRetries)")
+}
