@@ -147,11 +147,8 @@ k8s4claw wraps it all into a single `kubectl apply`.
 - Auto-update with health checks + circuit breaker
 - PVC persistence + CSI snapshots
 
-4/ Try it in 3 minutes — no setup needed:
+4/ Try it in Codespaces — kind cluster auto-provisioned in the devcontainer:
 [Open in Codespaces badge link]
-
-Or locally:
-docker run -p 18900:18900 -e OPENCLAW_MODE=mock ghcr.io/prismer-ai/k8s4claw-openclaw:0.1.0
 
 5/ Open source (Apache-2.0). Looking for contributors!
 
@@ -170,9 +167,9 @@ We open-sourced k8s4claw — a K8s operator that manages heterogeneous AI agent
 runtimes with a single CRD.
 
 **What it does:**
-- 7 built-in runtime adapters (OpenClaw, NanoClaw, ZeroClaw, PicoClaw,
-  IronClaw, HermesClaw, K8sOps)
-- IPC Bus sidecar with WAL, DLQ, and ring-buffer backpressure
+- 8 built-in runtime adapters (OpenClaw, NanoClaw, ZeroClaw, PicoClaw,
+  IronClaw, HermesClaw, HermesRS, K8sOps)
+- IPC Bus sidecar with JSON-lines WAL, bbolt DLQ, and ring-buffer backpressure
 - Channel sidecars (Slack, Discord, Webhook)
 - Auto-update with semver filtering + circuit-breaker rollback
 - Helm chart with cert-manager integration

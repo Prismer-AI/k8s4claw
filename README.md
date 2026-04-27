@@ -12,7 +12,7 @@
 
 ## The core idea
 
-k8s4claw keeps the LLM out of the cluster's write path. **The agent's ServiceAccount cannot patch workload objects.** The LLM can only submit a signed `ops-intent` on a Claw CR; a Go reconciler validates the intent against an allowlist (plus generation guard and Ed25519 signature) and is the only component that mutates workloads.
+k8s4claw keeps the LLM out of the cluster's write path. **The agent's ServiceAccount cannot patch workload objects.** The LLM can only submit an `ops-intent` annotation on a Claw CR; a Go reconciler validates the intent's JSON shape against a 5-action allowlist (plus generation guard) and is the only component that mutates workloads. The reconciler also writes an Ed25519 audit receipt when the action runs through the auto-execute path — the signature is for the audit trail, not for authorization, and is non-blocking if signing fails.
 
 |                                  | LLMops tools with `kubectl` RBAC | **k8s4claw**                        |
 | -------------------------------- | -------------------------------- | ----------------------------------- |
@@ -27,7 +27,7 @@ See [threat model](docs/security/threat-model.md) · [comparison](docs/marketing
 <p align="center">
   <img src="docs/marketing/media/demo.gif" alt="claw4k8s self-healing demo" width="800"/>
   <br/>
-  <em>Real OOM → ClawOpsController detects → rule matched → intent signed + consumed → Ed25519 audit trail. 90 seconds, end to end.</em>
+  <em>Real OOM → ClawOpsController detects → rule matched → intent applied by reconciler → Ed25519 audit receipt. 90 seconds, end to end.</em>
 </p>
 
 ## Why k8s4claw?
@@ -252,7 +252,7 @@ The unique wedge: AI agents manage their **own** Kubernetes infrastructure. See 
 - **ClawOpsController** — watches Pod status (OOMKilled, CrashLoop, HighCPU, Evicted) and auto-executes low-risk fixes from a deterministic rule engine
 - **Intent annotation pattern** — agents never patch StatefulSets directly; a single reconciler consumes intents through a 5-action allowlist with generation-based idempotency. Zero controller contention.
 - **Companion Claw (LLM agent)** — handles novel issues. Analyzes, proposes, routes to human approval via Slack (ClawChannel integration).
-- **Ed25519-signed audit trail** — every action signed; pure-Go signer with optional `signet` CLI fallback.
+- **Ed25519 audit receipts** — auto-executed actions get a signed receipt for the audit trail when signing succeeds (signing is non-blocking); pure-Go signer with optional `signet` CLI fallback.
 - **Graceful LLM fallback** — 3 retries with exponential backoff, then degrades to human notification — never paralyzes.
 - **ClawOpsEscalation CRD** — dual-purpose audit + workflow state machine (Pending → Analyzing → Proposed → AwaitingApproval → Approved → Executed).
 
