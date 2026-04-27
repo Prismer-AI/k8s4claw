@@ -19,6 +19,7 @@ jobs:
     outputs:
       go: ${{ steps.filter.outputs.go }}
       docs: ${{ steps.filter.outputs.docs }}
+      hermesrs: ${{ steps.filter.outputs.hermesrs }}
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
@@ -35,6 +36,9 @@ jobs:
             docs:
               - '**/*.md'
               - 'docs/**'
+            hermesrs:
+              - 'runtimes/hermesrs/**'
+              - 'internal/runtime/hermesrs.go'
 
   lint:
     needs: changes
@@ -130,6 +134,22 @@ jobs:
       - name: Build ${{ matrix.target.name }}
         run: docker build -f ${{ matrix.target.file }} ${{ matrix.target.context }}
 
+  # Separate slow build for hermes-agent-rs (Rust full compile ~10 min).
+  # Only runs when the Dockerfile or adapter changes — keeps PR feedback fast.
+  docker-build-hermesrs:
+    needs: changes
+    if: needs.changes.outputs.hermesrs == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Build hermes-agent-rs
+        run: |
+          docker build -f runtimes/hermesrs/Dockerfile \
+            --build-arg HERMES_REPO=https://github.com/willamhou/hermes-agent-rs.git \
+            --build-arg HERMES_REF=main \
+            -t hermesrs:ci-smoke \
+            runtimes/hermesrs/
+
   govulncheck:
     needs: changes
     if: needs.changes.outputs.go == 'true'
@@ -202,7 +222,7 @@ jobs:
   # This lets docs-only PRs merge without admin override while still
   # failing fast on any real regression.
   ci-gate:
-    needs: [changes, lint, test, build, verify-codegen, docker-build, govulncheck, coverage-gate, dco]
+    needs: [changes, lint, test, build, verify-codegen, docker-build, docker-build-hermesrs, govulncheck, coverage-gate, dco]
     if: ${{ always() }}
     runs-on: ubuntu-latest
     steps:
