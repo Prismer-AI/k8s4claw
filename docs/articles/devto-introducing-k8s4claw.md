@@ -3,6 +3,7 @@ title: "k8s4claw: A Kubernetes Operator for Managing AI Agent Runtimes"
 published: false
 description: "An open-source Kubernetes operator that deploys heterogeneous AI agent runtimes with a single CRD — IPC bus with WAL/DLQ, auto-updates with circuit-breaker rollbacks, and a Go SDK."
 tags: kubernetes, go, ai, opensource
+series: "k8s4claw internals"
 cover_image:
 ---
 

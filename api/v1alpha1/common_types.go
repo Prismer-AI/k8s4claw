@@ -6,7 +6,7 @@ import (
 )
 
 // RuntimeType defines the type of Claw runtime.
-// +kubebuilder:validation:Enum=openclaw;nanoclaw;zeroclaw;picoclaw;ironclaw;hermesclaw;k8sops;custom
+// +kubebuilder:validation:Enum=openclaw;nanoclaw;zeroclaw;picoclaw;ironclaw;hermesclaw;hermesrs;k8sops;custom
 type RuntimeType string
 
 // RuntimeType constants.
@@ -17,6 +17,7 @@ const (
 	RuntimePicoClaw   RuntimeType = "picoclaw"
 	RuntimeIronClaw   RuntimeType = "ironclaw"
 	RuntimeHermesClaw RuntimeType = "hermesclaw"
+	RuntimeHermesRS   RuntimeType = "hermesrs"
 	RuntimeK8sOps     RuntimeType = "k8sops"
 	RuntimeCustom     RuntimeType = "custom"
 )
