@@ -29,10 +29,10 @@ func (a *HermesRSAdapter) PodTemplate(claw *v1alpha1.Claw) *corev1.PodTemplateSp
 
 func (a *HermesRSAdapter) runtimeSpec(_ *v1alpha1.Claw) *RuntimeSpec {
 	return &RuntimeSpec{
-		Image:   "ghcr.io/prismer-ai/hermes-agent-rs:latest",
-		Command: []string{"/usr/local/bin/hermes"},
-		Args:    []string{"gateway", "run"},
-		Ports:   []corev1.ContainerPort{{Name: "gateway", ContainerPort: hermesRSGatewayPort, Protocol: corev1.ProtocolTCP}},
+		Image:     "ghcr.io/prismer-ai/hermes-agent-rs:latest",
+		Command:   []string{"/usr/local/bin/hermes"},
+		Args:      []string{"gateway", "run"},
+		Ports:     []corev1.ContainerPort{{Name: "gateway", ContainerPort: hermesRSGatewayPort, Protocol: corev1.ProtocolTCP}},
 		Resources: resources("250m", "512Mi", "2000m", "4Gi"),
 		Env: []corev1.EnvVar{
 			{Name: "HERMES_HOME", Value: hermesRSHomePath},
@@ -81,10 +81,10 @@ func (a *HermesRSAdapter) DefaultConfig() *RuntimeConfig {
 		GatewayPort:   hermesRSGatewayPort,
 		WorkspacePath: hermesRSSkillsPath,
 		Environment: map[string]string{
-			"HERMES_HOME":                            hermesRSHomePath,
-			"HERMES_GATEWAY_API_SERVER_BIND_ADDR":    "0.0.0.0:8080",
-			"HERMES_GATEWAY_API_SERVER_MODEL_NAME":   "hermes-agent-rs",
-			"RUST_LOG":                               "info",
+			"HERMES_HOME":                          hermesRSHomePath,
+			"HERMES_GATEWAY_API_SERVER_BIND_ADDR":  "0.0.0.0:8080",
+			"HERMES_GATEWAY_API_SERVER_MODEL_NAME": "hermes-agent-rs",
+			"RUST_LOG":                             "info",
 		},
 	}
 }
