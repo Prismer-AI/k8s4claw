@@ -87,7 +87,7 @@ func (c *HermesGatewayClient) Analyze(ctx context.Context, prompt string) (strin
 	if err != nil {
 		return "", "", fmt.Errorf("failed to call gateway: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	respBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
