@@ -127,13 +127,13 @@ The **Runtime** column shows the exact value to put in `spec.runtime` on a `Claw
 
 | `spec.runtime` | Language           | Upstream / Use Case                                                                                        | Gateway | Probe |
 | -------------- | ------------------ | ---------------------------------------------------------------------------------------------------------- | ------- | ----- |
-| `openclaw`     | TypeScript/Node.js | Full-featured AI assistant platform (first-party)                                                          | 18900   | HTTP  |
-| `nanoclaw`     | TypeScript/Node.js | Lightweight secure personal assistant (first-party)                                                        | 19000   | TCP   |
-| `zeroclaw`     | Rust               | High-performance agent runtime (first-party)                                                               | 3000    | HTTP  |
-| `picoclaw`     | —                  | Ultra-minimal serverless agent (first-party)                                                               | 8080    | TCP   |
-| `ironclaw`     | Rust + WASM        | Security/privacy-focused AI assistant (first-party)                                                        | 3001    | HTTP  |
-| `hermesclaw`   | Python             | Runs [nousresearch/hermes-agent](https://github.com/nousresearch/hermes-agent) via a RuntimeAdapter        | 8642    | HTTP  |
-| `hermesrs`     | Rust               | Runs [hermes-agent-rs](https://github.com/nousresearch/hermes-agent-rs) — Rust-native variant of HermesClaw | 8080    | HTTP  |
+| `openclaw`     | Go                 | WebSocket AI gateway + Anthropic SDK (first-party, verified end-to-end)                                    | 18900   | HTTP  |
+| `nanoclaw`     | TypeScript/Node.js | Lightweight secure personal assistant (first-party, **adapter only — image not yet shipped**)              | 19000   | TCP   |
+| `zeroclaw`     | Rust               | High-performance agent runtime (first-party, **adapter only — image not yet shipped**)                     | 3000    | HTTP  |
+| `picoclaw`     | —                  | Ultra-minimal serverless agent (first-party, **adapter only — image not yet shipped**)                     | 8080    | TCP   |
+| `ironclaw`     | Rust + WASM        | Security/privacy-focused AI assistant (first-party, **adapter only — image not yet shipped**)              | 3001    | HTTP  |
+| `hermesclaw`   | Python             | NousResearch upstream Hermes Agent — build instructions in [runtimes/hermesclaw/](runtimes/hermesclaw/README.md) | 8642    | HTTP  |
+| `hermesrs`     | Rust               | Runs [hermes-agent-rs](https://github.com/willamhou/hermes-agent-rs) — Rust Hermes (verified end-to-end)   | 8080    | HTTP  |
 | `k8sops`       | Go                 | Companion Claw runtime used by [claw4k8s](docs/plans/2026-04-19-claw4k8s-design.md) for self-healing       | 8800    | HTTP  |
 | `custom`       | Any                | Bring your own runtime image                                                                               | —       | —     |
 
