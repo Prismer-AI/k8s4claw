@@ -8,7 +8,7 @@
 [![License](https://img.shields.io/github/license/Prismer-AI/k8s4claw)](LICENSE)
 [![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/Prismer-AI/k8s4claw?quickstart=1)
 
-**A Kubernetes operator for AI agents that keeps the LLM out of the cluster's write path.** One CRD, any runtime (OpenClaw, NanoClaw, ZeroClaw, PicoClaw, IronClaw, HermesClaw), self-healing from day one.
+**A Kubernetes operator for AI agents that keeps the LLM out of the cluster's write path.** One CRD, any runtime (OpenClaw, NanoClaw, ZeroClaw, PicoClaw, IronClaw, HermesClaw, HermesRS, K8sOps), self-healing from day one.
 
 ## The core idea
 
@@ -133,6 +133,7 @@ The **Runtime** column shows the exact value to put in `spec.runtime` on a `Claw
 | `picoclaw`     | —                  | Ultra-minimal serverless agent (first-party)                                                               | 8080    | TCP   |
 | `ironclaw`     | Rust + WASM        | Security/privacy-focused AI assistant (first-party)                                                        | 3001    | HTTP  |
 | `hermesclaw`   | Python             | Runs [nousresearch/hermes-agent](https://github.com/nousresearch/hermes-agent) via a RuntimeAdapter        | 8642    | HTTP  |
+| `hermesrs`     | Rust               | Runs [hermes-agent-rs](https://github.com/nousresearch/hermes-agent-rs) — Rust-native variant of HermesClaw | 8080    | HTTP  |
 | `k8sops`       | Go                 | Companion Claw runtime used by [claw4k8s](docs/plans/2026-04-19-claw4k8s-design.md) for self-healing       | 8800    | HTTP  |
 | `custom`       | Any                | Bring your own runtime image                                                                               | —       | —     |
 

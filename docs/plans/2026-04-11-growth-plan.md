@@ -57,32 +57,74 @@ Both Dev.to posts carry `series: "k8s4claw internals"` so they nav-link on the s
 
 Biggest unshipped channel is **Show HN** — plan says Day 2, we're on Day 3. HN posts at US Pacific 7–9am (Beijing 10pm–midnight) get the best first-hour bump. Use the Dev.to intro URL as the HN link target. Second most valuable: **Reddit r/kubernetes**; templates below.
 
-### Show HN Template (updated 2026-04-23)
+### Show HN Template (updated 2026-04-27 after codex review)
 
 Target URL: `https://github.com/Prismer-AI/k8s4claw`
-Title: `Show HN: k8s4claw – Kubernetes operator for AI agent runtimes`
+Title: `Show HN: k8s4claw – a Kubernetes operator + IPC bus + auto-update for agent pods`
 
 First comment (post it immediately after submission, it makes or breaks the HN window):
 
 ```
-Author here. Built this because we had 7 different AI agent runtimes on K8s,
-each with its own Helm chart and sidecar layout. Rolling back a bad update
-was manual.
+Author here. We had eight LLM-agent processes on K8s — OpenClaw, NanoClaw,
+ZeroClaw, PicoClaw, IronClaw, HermesClaw, HermesRS, K8sOps — each with its
+own Helm chart and sidecar layout. Rolling back a bad image was manual.
+Adding Slack to a new agent meant copy-pasting YAML across repos.
 
-k8s4claw reconciles a full stack from one Claw CR: StatefulSet, Service,
-ConfigMap, PDB, NetworkPolicy. When you add a channel (Slack/Discord/Webhook),
-it injects a sidecar and an IPC bus (WAL + DLQ + ring-buffer backpressure)
-behind four wire protocols (WS/TCP/UDS/SSE).
+k8s4claw is a Go operator built with controller-runtime. One `Claw` CR
+reconciles the StatefulSet, Service, and ConfigMap; ServiceAccount is
+created automatically unless you point at an existing one; PDB defaults
+on but is opt-out; Role/RoleBinding/NetworkPolicy/Ingress are opt-in via
+the spec; PVCs come through the StatefulSet's volumeClaimTemplates.
+Channels (Slack/Discord/Webhook) attach as native sidecars on the runtimes
+that support them — HermesClaw, for instance, manages its own channels
+and explicitly rejects ours.
 
-Auto-update controller polls OCI registries on cron, filters by semver, does
-health-verified rollouts with circuit-breaker rollback.
+Two pieces I'd point you at:
 
-Intro: https://dev.to/willamhou/k8s4claw-a-kubernetes-operator-for-managing-ai-agent-runtimes-3anm
-IPC bus internals: https://dev.to/willamhou/building-an-ipc-bus-for-kubernetes-sidecars-wal-dlq-and-ring-buffer-backpressure-4b27
+The IPC bus is in-pod. Channel sidecars and the runtime container talk to
+it over four wire protocols (WS/TCP/UDS/SSE) hidden behind a 4-method
+RuntimeBridge interface. Reliability is a JSON-lines WAL on emptyDir, a
+BoltDB-backed DLQ, and a ring buffer with hysteresis-based backpressure
+(high=0.8, low=0.3). About 2k lines of Go, ~80% covered.
 
-Happy to answer questions about the IPC bus design, the runtime adapter pattern,
-or why the update state machine lives in annotations.
+The auto-update controller polls OCI registries on a cron schedule, filters
+tags through a semver constraint (skipping non-semver tags like `latest`),
+and excludes versions in a FailedVersions list. Rollout is "set the
+target-image annotation and let the main reconciler pick it up on the next
+pass" — the controller never patches the StatefulSet directly. Health gate
+requires both UpdatedReplicas and ReadyReplicas to reach desired, inside
+healthTimeout (default 10m). On timeout it rolls back automatically. After
+the default maxRollbacks=3 consecutive failures a circuit breaker opens and
+the controller stops trying. All in-flight rollout state lives in
+annotations, so the controller is stateless across restarts.
+
+Adapter contract is 7 methods (5 build + 2 validate). Adding a new runtime
+is mostly one Go file under internal/runtime/, plus registering it in
+cmd/operator/main.go and adding a const to api/v1alpha1/common_types.go.
+Auto-update only covers runtimes that have a published OCI image — HermesRS
+and K8sOps don't track public release tags yet, so they get skipped on the
+cron path.
+
+Internals deep-dives, if you want them:
+- Why this shape: https://dev.to/willamhou/k8s4claw-a-kubernetes-operator-for-managing-ai-agent-runtimes-3anm
+- IPC bus (WAL + DLQ + backpressure): https://dev.to/willamhou/building-an-ipc-bus-for-kubernetes-sidecars-wal-dlq-and-ring-buffer-backpressure-4b27
+- Auto-update controller: https://dev.to/willamhou/auto-updating-kubernetes-workloads-an-annotation-driven-rollout-with-circuit-breaker-280o
+
+Try it: open in GitHub Codespaces (the devcontainer auto-provisions a kind
+cluster) and follow `config/samples/quickstart/README.md` — it walks you
+through `make install`, `make run`, and applying the sample Claw with your
+own Anthropic + Slack secrets. Or smoke-test the runtime stub by itself:
+`docker run -p 18900:18900 -e OPENCLAW_MODE=mock ghcr.io/prismer-ai/k8s4claw-openclaw:latest`.
+
+Apache-2.0. Happy to answer questions about the IPC bus, the auto-update
+state machine, the runtime adapter pattern, or why the LLM never gets
+kubectl directly.
 ```
+
+> **Pre-flight checklist**
+> - Verify the openclaw image tag actually pulls anonymously from GHCR before posting (`docker pull ghcr.io/prismer-ai/k8s4claw-openclaw:latest`). If it doesn't, drop the `docker run` line entirely and keep just the Codespaces option.
+> - Have the 8-runtime list in your reply buffer — somebody will ask "what does each one do".
+> - Confirm Post 3's URL still resolves immediately before posting.
 
 ### Twitter Thread Template
 
