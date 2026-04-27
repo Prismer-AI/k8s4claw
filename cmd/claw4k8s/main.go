@@ -7,6 +7,7 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/go-logr/logr"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -46,8 +47,12 @@ func main() {
 		os.Exit(1)
 	}
 
-	// TODO: replace with real LLM client (Anthropic SDK).
-	llm := &noopLLMClient{}
+	// LLM client: use HermesGatewayClient if configured via env, else noop.
+	// Env vars:
+	//   LLM_GATEWAY_URL  — e.g. http://hermes-gateway.default.svc.cluster.local:8080
+	//   LLM_MODEL        — e.g. anthropic/claude-sonnet-4-20250514
+	//   LLM_API_KEY      — optional bearer token
+	llm := buildLLMClient(logger)
 
 	pipeline := &Pipeline{LLM: llm, MaxRetries: 3}
 
@@ -76,4 +81,26 @@ type noopLLMClient struct{}
 
 func (n *noopLLMClient) Analyze(_ context.Context, _ string) (string, string, error) {
 	return "", "", fmt.Errorf("LLM client not configured")
+}
+
+// buildLLMClient returns a HermesGatewayClient when LLM_GATEWAY_URL is set,
+// or a noopLLMClient otherwise. Falling back to noop allows the watcher to
+// run in environments without an LLM (escalations transition to
+// AwaitingApproval with a fallback analysis from the pipeline).
+func buildLLMClient(logger logr.Logger) LLMClient {
+	url := os.Getenv("LLM_GATEWAY_URL")
+	if url == "" {
+		logger.Info("LLM_GATEWAY_URL not set, using noop LLM client (fallback-only mode)")
+		return &noopLLMClient{}
+	}
+	model := os.Getenv("LLM_MODEL")
+	if model == "" {
+		model = "anthropic/claude-sonnet-4-20250514"
+	}
+	logger.Info("configured Hermes gateway LLM client", "url", url, "model", model)
+	return &HermesGatewayClient{
+		BaseURL: url,
+		Model:   model,
+		APIKey:  os.Getenv("LLM_API_KEY"),
+	}
 }
