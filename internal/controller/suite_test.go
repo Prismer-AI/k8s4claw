@@ -5,9 +5,12 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 
+	snapshotv1 "github.com/kubernetes-csi/external-snapshotter/client/v8/apis/volumesnapshot/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -41,8 +44,20 @@ func TestMain(m *testing.M) {
 
 	ctx, cancel = context.WithCancel(context.TODO()) //nolint:gosec // G118: cancel is called in teardown at end of TestMain
 
+	// Resolve VolumeSnapshot CRD path dynamically from the Go module cache.
+	// Uses `go list -m` so version bumps don't silently break the path.
+	crdPaths := []string{filepath.Join("..", "..", "config", "crd", "bases")}
+	snapshotModDir, goListErr := exec.Command("go", "list", "-m", "-f", "{{.Dir}}",
+		"github.com/kubernetes-csi/external-snapshotter/client/v8").Output()
+	if goListErr == nil {
+		snapshotCRDPath := filepath.Join(strings.TrimSpace(string(snapshotModDir)), "config", "crd")
+		if _, err := os.Stat(snapshotCRDPath); err == nil {
+			crdPaths = append(crdPaths, snapshotCRDPath)
+		}
+	}
+
 	testEnv = &envtest.Environment{
-		CRDDirectoryPaths:     []string{filepath.Join("..", "..", "config", "crd", "bases")},
+		CRDDirectoryPaths:     crdPaths,
 		ErrorIfCRDPathMissing: true,
 		WebhookInstallOptions: envtest.WebhookInstallOptions{
 			Paths: []string{filepath.Join("..", "..", "config", "webhook")},
@@ -61,6 +76,9 @@ func TestMain(m *testing.M) {
 	// Register CRD scheme.
 	if err := clawv1alpha1.AddToScheme(scheme.Scheme); err != nil {
 		panic("failed to add clawv1alpha1 to scheme: " + err.Error())
+	}
+	if err := snapshotv1.AddToScheme(scheme.Scheme); err != nil {
+		panic("failed to add VolumeSnapshot to scheme: " + err.Error())
 	}
 
 	// Build the runtime registry with all 5 adapters.
