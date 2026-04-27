@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 	"os"
 	"os/signal"
@@ -12,6 +11,7 @@ import (
 	"github.com/go-logr/logr"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
@@ -30,12 +30,17 @@ func main() {
 		namespace = "default"
 	}
 
-	// Build in-cluster K8s client.
+	// Build K8s client config: prefer in-cluster, fall back to KUBECONFIG /
+	// ~/.kube/config for local testing.
 	cfg, err := rest.InClusterConfig()
 	if err != nil {
-		logger.Error(err, "failed to get in-cluster config (running outside cluster?)")
-		fmt.Fprintln(os.Stderr, "claw4k8s: requires in-cluster config; set KUBERNETES_SERVICE_HOST or use a kubeconfig")
-		os.Exit(1)
+		logger.Info("in-cluster config not available, trying kubeconfig", "err", err.Error())
+		cfg, err = ctrl.GetConfig()
+		if err != nil {
+			logger.Error(err, "failed to load any K8s config (no in-cluster, no kubeconfig)")
+			os.Exit(1)
+		}
+		logger.Info("using kubeconfig for K8s client (out-of-cluster mode)")
 	}
 
 	if err := v1alpha1.AddToScheme(scheme.Scheme); err != nil {
