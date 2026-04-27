@@ -39,6 +39,9 @@ jobs:
           - image: k8s4claw
             dockerfile: Dockerfile
             context: .
+          - image: claw4k8s
+            dockerfile: Dockerfile.claw4k8s
+            context: .
           - image: claw-init
             dockerfile: Dockerfile.init
             context: .
