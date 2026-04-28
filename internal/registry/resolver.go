@@ -263,16 +263,12 @@ func ImageForRuntime(runtime string) string {
 	switch runtime {
 	case "openclaw":
 		return "ghcr.io/prismer-ai/k8s4claw-openclaw"
-	case "nanoclaw":
-		return "ghcr.io/prismer-ai/k8s4claw-nanoclaw"
-	case "zeroclaw":
-		return "ghcr.io/prismer-ai/k8s4claw-zeroclaw"
-	case "picoclaw":
-		return "ghcr.io/prismer-ai/k8s4claw-picoclaw"
-	case "ironclaw":
-		return "ghcr.io/prismer-ai/k8s4claw-ironclaw"
 	case "hermesclaw":
 		return "ghcr.io/nousresearch/hermes-agent"
+	case "hermesrs":
+		return "ghcr.io/prismer-ai/hermes-agent-rs"
+	case "k8sops":
+		return "ghcr.io/prismer-ai/claw4k8s"
 	default:
 		return ""
 	}
