@@ -6,6 +6,7 @@ bin/
 /channel-webhook
 .claude/
 /claw-init
+/claw4k8s
 coverage.txt
 *.dll
 .DS_Store
