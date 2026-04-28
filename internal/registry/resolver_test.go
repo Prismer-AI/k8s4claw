@@ -166,11 +166,9 @@ func TestImageForRuntime(t *testing.T) {
 		want    string
 	}{
 		{"openclaw", "ghcr.io/prismer-ai/k8s4claw-openclaw"},
-		{"nanoclaw", "ghcr.io/prismer-ai/k8s4claw-nanoclaw"},
-		{"zeroclaw", "ghcr.io/prismer-ai/k8s4claw-zeroclaw"},
-		{"picoclaw", "ghcr.io/prismer-ai/k8s4claw-picoclaw"},
-		{"ironclaw", "ghcr.io/prismer-ai/k8s4claw-ironclaw"},
 		{"hermesclaw", "ghcr.io/nousresearch/hermes-agent"},
+		{"hermesrs", "ghcr.io/prismer-ai/hermes-agent-rs"},
+		{"k8sops", "ghcr.io/prismer-ai/claw4k8s"},
 		{"unknown", ""},
 		{"", ""},
 	}
