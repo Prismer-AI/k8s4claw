@@ -327,6 +327,7 @@ func TestClawReconciler_StatefulSetCreated(t *testing.T) {
 func TestClawReconciler_StatusProvisioning(t *testing.T) {
 	ns := fmt.Sprintf("test-status-%d", time.Now().UnixNano())
 	createNamespace(t, ns)
+	ensureTestSecret(t, ns)
 
 	clawName := "test-claw-status"
 	claw := &clawv1alpha1.Claw{
@@ -335,7 +336,8 @@ func TestClawReconciler_StatusProvisioning(t *testing.T) {
 			Namespace: ns,
 		},
 		Spec: clawv1alpha1.ClawSpec{
-			Runtime: clawv1alpha1.RuntimePicoClaw,
+			Runtime:     clawv1alpha1.RuntimeOpenClaw,
+			Credentials: testCredentials(),
 		},
 	}
 
@@ -489,6 +491,7 @@ func TestClawReconciler_ServiceCreated(t *testing.T) {
 func TestClawReconciler_ConfigMapCreated(t *testing.T) {
 	ns := fmt.Sprintf("test-cm-create-%d", time.Now().UnixNano())
 	createNamespace(t, ns)
+	ensureTestSecret(t, ns)
 
 	clawName := "test-claw-cm"
 	claw := &clawv1alpha1.Claw{
@@ -497,7 +500,8 @@ func TestClawReconciler_ConfigMapCreated(t *testing.T) {
 			Namespace: ns,
 		},
 		Spec: clawv1alpha1.ClawSpec{
-			Runtime: clawv1alpha1.RuntimeNanoClaw,
+			Runtime:     clawv1alpha1.RuntimeOpenClaw,
+			Credentials: testCredentials(),
 		},
 	}
 
@@ -550,15 +554,15 @@ func TestClawReconciler_ConfigMapCreated(t *testing.T) {
 		t.Fatal("expected non-empty config.json value")
 	}
 
-	// Verify the config.json is valid JSON and contains expected NanoClaw defaults.
+	// Verify the config.json is valid JSON and contains expected OpenClaw defaults.
 	var parsed map[string]interface{}
 	if err := json.Unmarshal([]byte(configJSON), &parsed); err != nil {
 		t.Fatalf("config.json is not valid JSON: %v", err)
 	}
 	if port, ok := parsed["gatewayPort"]; !ok {
 		t.Error("expected gatewayPort in config.json")
-	} else if int(port.(float64)) != 19000 {
-		t.Errorf("expected gatewayPort=19000, got %v", port)
+	} else if int(port.(float64)) != 18900 {
+		t.Errorf("expected gatewayPort=18900, got %v", port)
 	}
 }
 
@@ -1189,7 +1193,7 @@ func TestWebhook_RejectsRuntimeChange(t *testing.T) {
 	if err := k8sClient.Get(ctx, types.NamespacedName{Name: claw.Name, Namespace: ns}, &fetched); err != nil {
 		t.Fatalf("failed to get Claw: %v", err)
 	}
-	fetched.Spec.Runtime = clawv1alpha1.RuntimeNanoClaw
+	fetched.Spec.Runtime = clawv1alpha1.RuntimeHermesClaw
 	err := k8sClient.Update(ctx, &fetched)
 	if err == nil {
 		t.Fatal("expected webhook to reject runtime change, but update succeeded")

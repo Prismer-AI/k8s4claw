@@ -56,86 +56,6 @@ func allAdapterTests() []adapterTestCase {
 			},
 		},
 		{
-			name:    "NanoClaw",
-			adapter: &NanoClawAdapter{},
-			runtime: v1alpha1.RuntimeNanoClaw,
-
-			wantPort:      19000,
-			wantWorkspace: "/workspace",
-			wantEnvKey:    "NANOCLAW_MODE",
-			wantEnvValue:  "container",
-			wantShutdown:  15,
-
-			wantHealth: probeExpectation{
-				probeType: "tcp", port: 19000,
-				initialDelay: 5, period: 10,
-			},
-			wantReady: probeExpectation{
-				probeType: "tcp", port: 19000,
-				initialDelay: 3, period: 5,
-			},
-		},
-		{
-			name:    "ZeroClaw",
-			adapter: &ZeroClawAdapter{},
-			runtime: v1alpha1.RuntimeZeroClaw,
-
-			wantPort:      3000,
-			wantWorkspace: "/workspace",
-			wantEnvKey:    "ZEROCLAW_MODE",
-			wantEnvValue:  "gateway",
-			wantShutdown:  5,
-
-			wantHealth: probeExpectation{
-				probeType: "http", path: "/health", port: 3000,
-				initialDelay: 3, period: 10,
-			},
-			wantReady: probeExpectation{
-				probeType: "http", path: "/ready", port: 3000,
-				initialDelay: 1, period: 5,
-			},
-		},
-		{
-			name:    "PicoClaw",
-			adapter: &PicoClawAdapter{},
-			runtime: v1alpha1.RuntimePicoClaw,
-
-			wantPort:      8080,
-			wantWorkspace: "/workspace",
-			wantEnvKey:    "PICOCLAW_MODE",
-			wantEnvValue:  "serverless",
-			wantShutdown:  2,
-
-			wantHealth: probeExpectation{
-				probeType: "tcp", port: 8080,
-				initialDelay: 1, period: 5,
-			},
-			wantReady: probeExpectation{
-				probeType: "tcp", port: 8080,
-				initialDelay: 1, period: 3,
-			},
-		},
-		{
-			name:    "IronClaw",
-			adapter: &IronClawAdapter{},
-			runtime: v1alpha1.RuntimeIronClaw,
-
-			wantPort:      3001,
-			wantWorkspace: "/workspace",
-			wantEnvKey:    "IRONCLAW_MODE",
-			wantEnvValue:  "gateway",
-			wantShutdown:  30,
-
-			wantHealth: probeExpectation{
-				probeType: "http", path: "/health", port: 3001,
-				initialDelay: 15, period: 15,
-			},
-			wantReady: probeExpectation{
-				probeType: "http", path: "/ready", port: 3001,
-				initialDelay: 10, period: 10,
-			},
-		},
-		{
 			name:    "HermesClaw",
 			adapter: &HermesClawAdapter{},
 			runtime: v1alpha1.RuntimeHermesClaw,
@@ -321,22 +241,14 @@ func TestAdapter_ValidateUpdate(t *testing.T) {
 	}
 }
 
-// TestAdapter_ShutdownOrdering verifies shutdown seconds follow expected ordering:
-// PicoClaw < ZeroClaw < NanoClaw < OpenClaw == IronClaw
-func TestAdapter_ShutdownOrdering(t *testing.T) {
+// TestAdapter_ShutdownNonZero verifies every shipped adapter has a non-zero
+// graceful shutdown period.
+func TestAdapter_ShutdownNonZero(t *testing.T) {
 	t.Parallel()
-	pico := (&PicoClawAdapter{}).GracefulShutdownSeconds()
-	zero := (&ZeroClawAdapter{}).GracefulShutdownSeconds()
-	nano := (&NanoClawAdapter{}).GracefulShutdownSeconds()
-	open := (&OpenClawAdapter{}).GracefulShutdownSeconds()
-	iron := (&IronClawAdapter{}).GracefulShutdownSeconds()
-
-	if !(pico < zero && zero < nano && nano < open) {
-		t.Errorf("shutdown ordering violated: pico=%d, zero=%d, nano=%d, open=%d; want pico < zero < nano < open",
-			pico, zero, nano, open)
-	}
-	if !(nano < iron) {
-		t.Errorf("shutdown ordering violated: nano=%d, iron=%d; want nano < iron", nano, iron)
+	for _, tt := range allAdapterTests() {
+		if got := tt.adapter.GracefulShutdownSeconds(); got <= 0 {
+			t.Errorf("%s: GracefulShutdownSeconds() = %d; want > 0", tt.name, got)
+		}
 	}
 }
 

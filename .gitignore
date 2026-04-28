@@ -1,41 +1,38 @@
-# Binaries
+
+*~
 bin/
+# Binaries
 /channel-slack
 /channel-webhook
-/ipcbus
-/claw-init
-*.exe
-*.dll
-*.so
-*.dylib
-
-# Test
-*.test
-*.out
-coverage.txt
-
-# IDE / AI tools
-.idea/
-.vscode/
 .claude/
-*.swp
-*.swo
-*~
-
-# OS
+/claw-init
+coverage.txt
+*.dll
 .DS_Store
-Thumbs.db
-
-# Go
-vendor/
-
-# Kubernetes
-*.kubeconfig
-
-# Worktrees
-.worktrees/
-
-# Environment
+*.dylib
 .env
+# Environment
 .env.local
+*.exe
+# Go
+.idea/
+# IDE / AI tools
+/ipcbus
+*.kubeconfig
+# Kubernetes
 /operator
+# OS
+*.out
+/runtimes/*/hermes
+/runtimes/*/openclaw
+/runtimes/openclaw/openclaw
+*.so
+*.swo
+*.swp
+*.test
+# Test
+Thumbs.db
+vendor/
+.vscode/
+.worktrees/
+# Worktrees

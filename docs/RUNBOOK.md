@@ -5,10 +5,6 @@
 | Runtime | Image | Gateway Port | Probe | CPU (req/lim) | Memory (req/lim) | Shutdown | Config Mode |
 |---------|-------|-------------|-------|---------------|-------------------|----------|-------------|
 | OpenClaw | `ghcr.io/prismer-ai/k8s4claw-openclaw` | 18900 | HTTP `/health` `/ready` | 500m / 2000m | 1Gi / 4Gi | 30s | DeepMerge |
-| NanoClaw | `ghcr.io/prismer-ai/k8s4claw-nanoclaw` | 19000 | TCP | 100m / 500m | 256Mi / 512Mi | 15s | Overwrite |
-| ZeroClaw | `ghcr.io/prismer-ai/k8s4claw-zeroclaw` | 3000 | HTTP `/health` `/ready` | 50m / 200m | 32Mi / 128Mi | 5s | Passthrough |
-| PicoClaw | `ghcr.io/prismer-ai/k8s4claw-picoclaw` | 8080 | TCP | 25m / 100m | 16Mi / 64Mi | 2s | Passthrough |
-| IronClaw | `ghcr.io/prismer-ai/k8s4claw-ironclaw` | 3001 | HTTP `/health` `/ready` | 500m / 2000m | 1Gi / 4Gi | 30s | DeepMerge |
 
 `terminationGracePeriodSeconds` = shutdown + 15s buffer for all runtimes.
 

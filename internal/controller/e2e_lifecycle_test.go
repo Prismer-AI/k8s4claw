@@ -222,11 +222,8 @@ func TestE2E_MultiRuntime(t *testing.T) {
 		needsCreds bool
 	}{
 		{clawv1alpha1.RuntimeOpenClaw, "ghcr.io/prismer-ai/k8s4claw-openclaw:latest", 18900, true},
-		{clawv1alpha1.RuntimeNanoClaw, "ghcr.io/prismer-ai/k8s4claw-nanoclaw:latest", 19000, false},
-		{clawv1alpha1.RuntimeZeroClaw, "ghcr.io/prismer-ai/k8s4claw-zeroclaw:latest", 3000, false},
-		{clawv1alpha1.RuntimePicoClaw, "ghcr.io/prismer-ai/k8s4claw-picoclaw:latest", 8080, false},
-		{clawv1alpha1.RuntimeIronClaw, "ghcr.io/prismer-ai/k8s4claw-ironclaw:latest", 3001, true},
 		{clawv1alpha1.RuntimeHermesClaw, "ghcr.io/nousresearch/hermes-agent:latest", 8642, true},
+		{clawv1alpha1.RuntimeHermesRS, "ghcr.io/prismer-ai/hermes-agent-rs:latest", 8080, true},
 	}
 
 	for _, tt := range tests {
@@ -577,7 +574,8 @@ func TestE2E_PersistenceReclaimPolicies(t *testing.T) {
 		claw := &clawv1alpha1.Claw{
 			ObjectMeta: metav1.ObjectMeta{Name: nn.Name, Namespace: ns},
 			Spec: clawv1alpha1.ClawSpec{
-				Runtime: clawv1alpha1.RuntimePicoClaw,
+				Runtime:     clawv1alpha1.RuntimeOpenClaw,
+				Credentials: testCredentials(),
 				Persistence: &clawv1alpha1.PersistenceSpec{
 					ReclaimPolicy: clawv1alpha1.ReclaimDelete,
 					Session: &clawv1alpha1.VolumeSpec{
@@ -669,7 +667,8 @@ func TestE2E_PersistenceReclaimPolicies(t *testing.T) {
 		claw := &clawv1alpha1.Claw{
 			ObjectMeta: metav1.ObjectMeta{Name: nn.Name, Namespace: ns},
 			Spec: clawv1alpha1.ClawSpec{
-				Runtime: clawv1alpha1.RuntimePicoClaw,
+				Runtime:     clawv1alpha1.RuntimeOpenClaw,
+				Credentials: testCredentials(),
 				Persistence: &clawv1alpha1.PersistenceSpec{
 					ReclaimPolicy: clawv1alpha1.ReclaimRetain,
 					Session: &clawv1alpha1.VolumeSpec{
@@ -763,7 +762,7 @@ func TestE2E_WebhookValidation(t *testing.T) {
 		if err := k8sClient.Get(ctx, nn, &fetched); err != nil {
 			t.Fatalf("failed to get Claw: %v", err)
 		}
-		fetched.Spec.Runtime = clawv1alpha1.RuntimeNanoClaw
+		fetched.Spec.Runtime = clawv1alpha1.RuntimeHermesClaw
 		if err := k8sClient.Update(ctx, &fetched); err == nil {
 			t.Fatal("expected webhook to reject runtime change")
 		}

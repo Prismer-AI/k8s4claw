@@ -192,12 +192,7 @@ echo "  Init image: $INIT_IMG"
 # Use ":latest" tags (matching adapter defaults) + also ":v0" to avoid
 # imagePullPolicy=Always. We'll also import directly into containerd.
 RUNTIME_IMAGES=(
-    "ghcr.io/prismer-ai/k8s4claw-openclaw:latest"
-    "ghcr.io/prismer-ai/k8s4claw-nanoclaw:latest"
-    "ghcr.io/prismer-ai/k8s4claw-zeroclaw:latest"
-    "ghcr.io/prismer-ai/k8s4claw-picoclaw:latest"
-    "ghcr.io/prismer-ai/k8s4claw-ironclaw:latest"
-    "docker.io/nousresearch/hermes-agent:latest"
+    "ghcr.io/prismer-ai/k8s4claw-openclaw:latest"    "docker.io/nousresearch/hermes-agent:latest"
     "ghcr.io/nousresearch/hermes-agent:latest"
     "$INIT_IMG"
 )
@@ -234,16 +229,12 @@ sleep 5
 # Test each runtime
 #                runtime       port   needs_creds
 test_runtime     "openclaw"    18900  "true"
-test_runtime     "nanoclaw"    19000  "false"
-test_runtime     "zeroclaw"    3000   "false"
-test_runtime     "picoclaw"    8080   "false"
-test_runtime     "ironclaw"    3001   "true"
 test_runtime     "hermesclaw"  8642   "true"
 
 # Summary
 echo ""
 echo "══════════════════════════════════════════════════"
-echo -e "  Results: ${GREEN}${PASS} passed${NC}, ${RED}${FAIL} failed${NC}, 6 total"
+echo -e "  Results: ${GREEN}${PASS} passed${NC}, ${RED}${FAIL} failed${NC}, remaining runtimes"
 if [ "$FAIL" -gt 0 ]; then
     echo -e "  Failed runtimes:${ERRORS}"
 fi

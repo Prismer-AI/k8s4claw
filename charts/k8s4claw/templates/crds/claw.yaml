@@ -559,11 +559,9 @@ spec:
                 description: Runtime is the agent runtime type. Immutable after creation.
                 enum:
                 - openclaw
-                - nanoclaw
-                - zeroclaw
-                - picoclaw
-                - ironclaw
                 - hermesclaw
+                - hermesrs
+                - k8sops
                 - custom
                 type: string
               security:

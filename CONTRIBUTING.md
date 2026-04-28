@@ -104,7 +104,7 @@ All commits must be signed off per the [Developer Certificate of Origin](DCO). U
 
 ## Adding a New Runtime
 
-Implement the `RuntimeAdapter` interface in `internal/runtime/`. See `ironclaw.go` for a recent example.
+Implement the `RuntimeAdapter` interface in `internal/runtime/`. See `hermesrs.go` for a recent example.
 
 1. Add a `RuntimeType` constant in `api/v1alpha1/common_types.go` (update kubebuilder enum marker)
 2. Create `internal/runtime/yourruntime.go` implementing `RuntimeAdapter` (`RuntimeBuilder` + `RuntimeValidator`)
