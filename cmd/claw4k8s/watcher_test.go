@@ -238,3 +238,217 @@ func TestReconcilePending_EmptyList(t *testing.T) {
 	processed := w.reconcilePending(context.Background())
 	assert.Equal(t, 0, processed)
 }
+
+// ---------------------------------------------------------------------------
+// Multi-namespace + scope handling
+// ---------------------------------------------------------------------------
+
+func TestReconcilePending_ClusterWide(t *testing.T) {
+	t.Parallel()
+	scheme := testScheme()
+
+	pendingNS1 := &v1alpha1.ClawOpsEscalation{
+		ObjectMeta: metav1.ObjectMeta{Name: "esc-1", Namespace: "team-a"},
+		Spec: v1alpha1.ClawOpsEscalationSpec{
+			ClawRef:  corev1.LocalObjectReference{Name: "claw-a"},
+			Severity: v1alpha1.SeverityHigh,
+			Trigger:  v1alpha1.TriggerInfo{Type: v1alpha1.TriggerOOMKilled, Count: 1},
+		},
+		Status: v1alpha1.ClawOpsEscalationStatus{Phase: v1alpha1.EscalationPhasePending},
+	}
+	pendingNS2 := &v1alpha1.ClawOpsEscalation{
+		ObjectMeta: metav1.ObjectMeta{Name: "esc-2", Namespace: "team-b"},
+		Spec: v1alpha1.ClawOpsEscalationSpec{
+			ClawRef:  corev1.LocalObjectReference{Name: "claw-b"},
+			Severity: v1alpha1.SeverityHigh,
+			Trigger:  v1alpha1.TriggerInfo{Type: v1alpha1.TriggerOOMKilled, Count: 1},
+		},
+		Status: v1alpha1.ClawOpsEscalationStatus{Phase: v1alpha1.EscalationPhasePending},
+	}
+
+	fc := fake.NewClientBuilder().WithScheme(scheme).
+		WithObjects(pendingNS1, pendingNS2).
+		WithStatusSubresource(pendingNS1, pendingNS2).
+		Build()
+
+	llm := &mockLLMClient{analysis: "ok", action: `{"action":"bump-memory","params":{"target":"512Mi"},"generation":1,"source":"companion-claw"}`}
+	pipeline := &Pipeline{LLM: llm, MaxRetries: 1}
+
+	// Empty Namespaces == cluster-wide.
+	w := &Watcher{Client: fc, Pipeline: pipeline}
+
+	processed := w.reconcilePending(context.Background())
+	assert.Equal(t, 2, processed, "should process escalations from both namespaces")
+}
+
+func TestReconcilePending_MultiNamespace_OnlyListedAreReconciled(t *testing.T) {
+	t.Parallel()
+	scheme := testScheme()
+
+	inA := &v1alpha1.ClawOpsEscalation{
+		ObjectMeta: metav1.ObjectMeta{Name: "esc-a", Namespace: "team-a"},
+		Spec: v1alpha1.ClawOpsEscalationSpec{
+			ClawRef: corev1.LocalObjectReference{Name: "claw-a"}, Severity: v1alpha1.SeverityHigh,
+			Trigger: v1alpha1.TriggerInfo{Type: v1alpha1.TriggerOOMKilled, Count: 1},
+		},
+		Status: v1alpha1.ClawOpsEscalationStatus{Phase: v1alpha1.EscalationPhasePending},
+	}
+	inB := &v1alpha1.ClawOpsEscalation{
+		ObjectMeta: metav1.ObjectMeta{Name: "esc-b", Namespace: "team-b"},
+		Spec: v1alpha1.ClawOpsEscalationSpec{
+			ClawRef: corev1.LocalObjectReference{Name: "claw-b"}, Severity: v1alpha1.SeverityHigh,
+			Trigger: v1alpha1.TriggerInfo{Type: v1alpha1.TriggerOOMKilled, Count: 1},
+		},
+		Status: v1alpha1.ClawOpsEscalationStatus{Phase: v1alpha1.EscalationPhasePending},
+	}
+	inC := &v1alpha1.ClawOpsEscalation{
+		ObjectMeta: metav1.ObjectMeta{Name: "esc-c", Namespace: "team-c"},
+		Spec: v1alpha1.ClawOpsEscalationSpec{
+			ClawRef: corev1.LocalObjectReference{Name: "claw-c"}, Severity: v1alpha1.SeverityHigh,
+			Trigger: v1alpha1.TriggerInfo{Type: v1alpha1.TriggerOOMKilled, Count: 1},
+		},
+		Status: v1alpha1.ClawOpsEscalationStatus{Phase: v1alpha1.EscalationPhasePending},
+	}
+
+	fc := fake.NewClientBuilder().WithScheme(scheme).
+		WithObjects(inA, inB, inC).
+		WithStatusSubresource(inA, inB, inC).
+		Build()
+
+	llm := &mockLLMClient{analysis: "ok", action: `{"action":"bump-memory","params":{"target":"512Mi"},"generation":1,"source":"companion-claw"}`}
+	pipeline := &Pipeline{LLM: llm, MaxRetries: 1}
+
+	// Watch only team-a and team-b, NOT team-c.
+	w := &Watcher{
+		Client:     fc,
+		Pipeline:   pipeline,
+		Namespaces: []string{"team-a", "team-b"},
+	}
+
+	processed := w.reconcilePending(context.Background())
+	assert.Equal(t, 2, processed, "should process esc-a and esc-b only")
+
+	// Verify team-c was NOT touched.
+	var untouched v1alpha1.ClawOpsEscalation
+	require.NoError(t, fc.Get(context.Background(), types.NamespacedName{
+		Name: "esc-c", Namespace: "team-c",
+	}, &untouched))
+	assert.Equal(t, v1alpha1.EscalationPhasePending, untouched.Status.Phase, "team-c escalation must remain Pending")
+}
+
+func TestProcessEscalation_DispatchesNotificationOnAwaitingApproval(t *testing.T) {
+	t.Parallel()
+	scheme := testScheme()
+
+	esc := &v1alpha1.ClawOpsEscalation{
+		ObjectMeta: metav1.ObjectMeta{Name: "esc-notify", Namespace: "default"},
+		Spec: v1alpha1.ClawOpsEscalationSpec{
+			ClawRef:  corev1.LocalObjectReference{Name: "my-claw"},
+			Severity: v1alpha1.SeverityHigh,
+			Trigger:  v1alpha1.TriggerInfo{Type: v1alpha1.TriggerOOMKilled, Count: 1},
+		},
+		Status: v1alpha1.ClawOpsEscalationStatus{Phase: v1alpha1.EscalationPhasePending},
+	}
+	fc := fake.NewClientBuilder().WithScheme(scheme).
+		WithObjects(esc).
+		WithStatusSubresource(esc).
+		Build()
+
+	llm := &mockLLMClient{
+		analysis: "ok",
+		action:   `{"action":"bump-memory","params":{"target":"512Mi"},"generation":1,"source":"companion-claw"}`,
+	}
+	stub := &stubNotifier{}
+	w := &Watcher{
+		Client:   fc,
+		Pipeline: &Pipeline{LLM: llm, MaxRetries: 1},
+		Notifier: stub,
+	}
+
+	require.NoError(t, w.processEscalation(context.Background(), esc))
+	assert.Equal(t, int64(1), stub.calls.Load(), "notifier must be called once after AwaitingApproval transition")
+}
+
+func TestProcessEscalation_NotifierErrorDoesNotFailReconcile(t *testing.T) {
+	t.Parallel()
+	scheme := testScheme()
+
+	esc := &v1alpha1.ClawOpsEscalation{
+		ObjectMeta: metav1.ObjectMeta{Name: "esc-notify-err", Namespace: "default"},
+		Spec: v1alpha1.ClawOpsEscalationSpec{
+			ClawRef:  corev1.LocalObjectReference{Name: "my-claw"},
+			Severity: v1alpha1.SeverityHigh,
+			Trigger:  v1alpha1.TriggerInfo{Type: v1alpha1.TriggerOOMKilled, Count: 1},
+		},
+		Status: v1alpha1.ClawOpsEscalationStatus{Phase: v1alpha1.EscalationPhasePending},
+	}
+	fc := fake.NewClientBuilder().WithScheme(scheme).
+		WithObjects(esc).
+		WithStatusSubresource(esc).
+		Build()
+
+	llm := &mockLLMClient{analysis: "ok"}
+	w := &Watcher{
+		Client:   fc,
+		Pipeline: &Pipeline{LLM: llm, MaxRetries: 1},
+		// Notifier returns an error; reconcile must still succeed.
+		Notifier: &stubNotifier{err: assert.AnError},
+	}
+
+	require.NoError(t, w.processEscalation(context.Background(), esc))
+
+	var updated v1alpha1.ClawOpsEscalation
+	require.NoError(t, fc.Get(context.Background(), types.NamespacedName{
+		Name: "esc-notify-err", Namespace: "default",
+	}, &updated))
+	assert.Equal(t, v1alpha1.EscalationPhaseAwaitingApproval, updated.Status.Phase,
+		"notification failure must not roll back the AwaitingApproval phase")
+}
+
+func TestNormalizeNamespaces(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name       string
+		inSingular string
+		inPlural   []string
+		wantPlural []string
+	}{
+		{
+			name:       "singular only",
+			inSingular: "team-a",
+			wantPlural: []string{"team-a"},
+		},
+		{
+			name:       "plural only",
+			inPlural:   []string{"team-a", "team-b"},
+			wantPlural: []string{"team-a", "team-b"},
+		},
+		{
+			name:       "singular merged into plural",
+			inSingular: "team-c",
+			inPlural:   []string{"team-a", "team-b"},
+			wantPlural: []string{"team-a", "team-b", "team-c"},
+		},
+		{
+			name:       "singular already in plural is not duplicated",
+			inSingular: "team-a",
+			inPlural:   []string{"team-a", "team-b"},
+			wantPlural: []string{"team-a", "team-b"},
+		},
+		{
+			name:       "both empty",
+			wantPlural: nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			w := &Watcher{Namespace: tt.inSingular, Namespaces: tt.inPlural}
+			w.normalizeNamespaces()
+			assert.Equal(t, tt.wantPlural, w.Namespaces)
+			assert.Empty(t, w.Namespace, "singular Namespace must be cleared after normalize")
+		})
+	}
+}
