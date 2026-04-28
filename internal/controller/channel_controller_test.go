@@ -271,6 +271,7 @@ func TestClawChannelReconciler_DeletionProtection(t *testing.T) {
 func TestClawChannelWatch_CrossResourceReconcile(t *testing.T) {
 	ns := fmt.Sprintf("test-ch-watch-%d", time.Now().UnixNano())
 	createNamespace(t, ns)
+	ensureTestSecret(t, ns)
 
 	// 1. Create a ClawChannel.
 	channel := &clawv1alpha1.ClawChannel{
@@ -294,7 +295,8 @@ func TestClawChannelWatch_CrossResourceReconcile(t *testing.T) {
 			Namespace: ns,
 		},
 		Spec: clawv1alpha1.ClawSpec{
-			Runtime: clawv1alpha1.RuntimeZeroClaw,
+			Runtime:     clawv1alpha1.RuntimeOpenClaw,
+			Credentials: testCredentials(),
 			Channels: []clawv1alpha1.ChannelRef{
 				{Name: channel.Name, Mode: clawv1alpha1.ChannelModeBidirectional},
 			},

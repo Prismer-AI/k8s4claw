@@ -84,10 +84,6 @@ func TestMain(m *testing.M) {
 	// Build the runtime registry with all 5 adapters.
 	registry := clawruntime.NewRegistry()
 	registry.Register(clawv1alpha1.RuntimeOpenClaw, &clawruntime.OpenClawAdapter{})
-	registry.Register(clawv1alpha1.RuntimeNanoClaw, &clawruntime.NanoClawAdapter{})
-	registry.Register(clawv1alpha1.RuntimeZeroClaw, &clawruntime.ZeroClawAdapter{})
-	registry.Register(clawv1alpha1.RuntimePicoClaw, &clawruntime.PicoClawAdapter{})
-	registry.Register(clawv1alpha1.RuntimeIronClaw, &clawruntime.IronClawAdapter{})
 	registry.Register(clawv1alpha1.RuntimeHermesClaw, &clawruntime.HermesClawAdapter{})
 	registry.Register(clawv1alpha1.RuntimeHermesRS, &clawruntime.HermesRSAdapter{})
 	registry.Register(clawv1alpha1.RuntimeK8sOps, &clawruntime.K8sOpsAdapter{})

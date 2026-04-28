@@ -25,7 +25,8 @@ func TestReconcile_InitiatesUpdate(t *testing.T) {
 	claw := &clawv1alpha1.Claw{
 		ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "default"},
 		Spec: clawv1alpha1.ClawSpec{
-			Runtime: clawv1alpha1.RuntimeOpenClaw,
+			Runtime:     clawv1alpha1.RuntimeOpenClaw,
+			Credentials: testCredentials(),
 			AutoUpdate: &clawv1alpha1.AutoUpdateSpec{
 				Enabled:           true,
 				VersionConstraint: ">=0.0.0",
@@ -77,7 +78,8 @@ func TestReconcile_SkipsDigestPinned(t *testing.T) {
 			},
 		},
 		Spec: clawv1alpha1.ClawSpec{
-			Runtime: clawv1alpha1.RuntimeOpenClaw,
+			Runtime:     clawv1alpha1.RuntimeOpenClaw,
+			Credentials: testCredentials(),
 			AutoUpdate: &clawv1alpha1.AutoUpdateSpec{
 				Enabled: true,
 			},
@@ -120,7 +122,8 @@ func TestReconcile_HealthCheckPassed(t *testing.T) {
 			},
 		},
 		Spec: clawv1alpha1.ClawSpec{
-			Runtime: clawv1alpha1.RuntimeOpenClaw,
+			Runtime:     clawv1alpha1.RuntimeOpenClaw,
+			Credentials: testCredentials(),
 			AutoUpdate: &clawv1alpha1.AutoUpdateSpec{
 				Enabled: true,
 			},
@@ -193,7 +196,8 @@ func TestReconcile_HealthCheckTimeout_Rollback(t *testing.T) {
 			},
 		},
 		Spec: clawv1alpha1.ClawSpec{
-			Runtime: clawv1alpha1.RuntimeOpenClaw,
+			Runtime:     clawv1alpha1.RuntimeOpenClaw,
+			Credentials: testCredentials(),
 			AutoUpdate: &clawv1alpha1.AutoUpdateSpec{
 				Enabled: true,
 			},
@@ -265,7 +269,8 @@ func TestReconcile_RollbackOpensCircuitBreaker(t *testing.T) {
 			},
 		},
 		Spec: clawv1alpha1.ClawSpec{
-			Runtime: clawv1alpha1.RuntimeOpenClaw,
+			Runtime:     clawv1alpha1.RuntimeOpenClaw,
+			Credentials: testCredentials(),
 			AutoUpdate: &clawv1alpha1.AutoUpdateSpec{
 				Enabled:      true,
 				MaxRollbacks: 2,
@@ -325,7 +330,8 @@ func TestReconcile_TagListerError(t *testing.T) {
 	claw := &clawv1alpha1.Claw{
 		ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "default"},
 		Spec: clawv1alpha1.ClawSpec{
-			Runtime: clawv1alpha1.RuntimeOpenClaw,
+			Runtime:     clawv1alpha1.RuntimeOpenClaw,
+			Credentials: testCredentials(),
 			AutoUpdate: &clawv1alpha1.AutoUpdateSpec{
 				Enabled: true,
 			},
@@ -368,8 +374,9 @@ func TestReconcile_HealthCheck_STSNotFound_WithinTimeout(t *testing.T) {
 			},
 		},
 		Spec: clawv1alpha1.ClawSpec{
-			Runtime:    clawv1alpha1.RuntimeOpenClaw,
-			AutoUpdate: &clawv1alpha1.AutoUpdateSpec{Enabled: true},
+			Runtime:     clawv1alpha1.RuntimeOpenClaw,
+			Credentials: testCredentials(),
+			AutoUpdate:  &clawv1alpha1.AutoUpdateSpec{Enabled: true},
 		},
 		Status: clawv1alpha1.ClawStatus{
 			AutoUpdate: &clawv1alpha1.AutoUpdateStatus{AvailableVersion: "1.1.0"},
@@ -412,8 +419,9 @@ func TestReconcile_HealthCheck_STSNotFound_Timeout(t *testing.T) {
 			},
 		},
 		Spec: clawv1alpha1.ClawSpec{
-			Runtime:    clawv1alpha1.RuntimeOpenClaw,
-			AutoUpdate: &clawv1alpha1.AutoUpdateSpec{Enabled: true},
+			Runtime:     clawv1alpha1.RuntimeOpenClaw,
+			Credentials: testCredentials(),
+			AutoUpdate:  &clawv1alpha1.AutoUpdateSpec{Enabled: true},
 		},
 		Status: clawv1alpha1.ClawStatus{
 			AutoUpdate: &clawv1alpha1.AutoUpdateStatus{AvailableVersion: "1.1.0"},
@@ -460,8 +468,9 @@ func TestReconcile_HealthCheck_InvalidStartTime(t *testing.T) {
 			},
 		},
 		Spec: clawv1alpha1.ClawSpec{
-			Runtime:    clawv1alpha1.RuntimeOpenClaw,
-			AutoUpdate: &clawv1alpha1.AutoUpdateSpec{Enabled: true},
+			Runtime:     clawv1alpha1.RuntimeOpenClaw,
+			Credentials: testCredentials(),
+			AutoUpdate:  &clawv1alpha1.AutoUpdateSpec{Enabled: true},
 		},
 		Status: clawv1alpha1.ClawStatus{
 			AutoUpdate: &clawv1alpha1.AutoUpdateStatus{AvailableVersion: "1.1.0"},
@@ -501,8 +510,9 @@ func TestReconcile_HealthCheck_WaitingForReplicas(t *testing.T) {
 			},
 		},
 		Spec: clawv1alpha1.ClawSpec{
-			Runtime:    clawv1alpha1.RuntimeOpenClaw,
-			AutoUpdate: &clawv1alpha1.AutoUpdateSpec{Enabled: true},
+			Runtime:     clawv1alpha1.RuntimeOpenClaw,
+			Credentials: testCredentials(),
+			AutoUpdate:  &clawv1alpha1.AutoUpdateSpec{Enabled: true},
 		},
 		Status: clawv1alpha1.ClawStatus{
 			AutoUpdate: &clawv1alpha1.AutoUpdateStatus{AvailableVersion: "1.1.0"},
@@ -561,7 +571,8 @@ func TestReconcile_HealthCheck_CustomTimeout(t *testing.T) {
 			},
 		},
 		Spec: clawv1alpha1.ClawSpec{
-			Runtime: clawv1alpha1.RuntimeOpenClaw,
+			Runtime:     clawv1alpha1.RuntimeOpenClaw,
+			Credentials: testCredentials(),
 			AutoUpdate: &clawv1alpha1.AutoUpdateSpec{
 				Enabled:       true,
 				HealthTimeout: "30m", // Custom longer timeout
@@ -614,7 +625,8 @@ func TestReconcile_NotDueYet(t *testing.T) {
 	claw := &clawv1alpha1.Claw{
 		ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "default"},
 		Spec: clawv1alpha1.ClawSpec{
-			Runtime: clawv1alpha1.RuntimeOpenClaw,
+			Runtime:     clawv1alpha1.RuntimeOpenClaw,
+			Credentials: testCredentials(),
 			AutoUpdate: &clawv1alpha1.AutoUpdateSpec{
 				Enabled:  true,
 				Schedule: "0 3 * * *", // Once a day at 3am

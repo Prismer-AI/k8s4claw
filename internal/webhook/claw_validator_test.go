@@ -14,10 +14,6 @@ import (
 func newRegistry() *clawruntime.Registry {
 	reg := clawruntime.NewRegistry()
 	reg.Register(clawv1alpha1.RuntimeOpenClaw, &clawruntime.OpenClawAdapter{})
-	reg.Register(clawv1alpha1.RuntimeNanoClaw, &clawruntime.NanoClawAdapter{})
-	reg.Register(clawv1alpha1.RuntimeZeroClaw, &clawruntime.ZeroClawAdapter{})
-	reg.Register(clawv1alpha1.RuntimePicoClaw, &clawruntime.PicoClawAdapter{})
-	reg.Register(clawv1alpha1.RuntimeIronClaw, &clawruntime.IronClawAdapter{})
 	reg.Register(clawv1alpha1.RuntimeHermesClaw, &clawruntime.HermesClawAdapter{})
 	return reg
 }
@@ -146,7 +142,7 @@ func TestValidateCreate_RuntimeAdapterValidation(t *testing.T) {
 	// Adapters currently return empty ErrorList (stubs), so validation passes.
 	v := &ClawValidator{Registry: newRegistry()}
 	claw := baseClaw()
-	claw.Spec.Runtime = clawv1alpha1.RuntimeNanoClaw
+	claw.Spec.Runtime = clawv1alpha1.RuntimeOpenClaw
 
 	warnings, err := v.ValidateCreate(context.Background(), claw)
 	if err != nil {
@@ -178,7 +174,7 @@ func TestValidateUpdate_RuntimeImmutability(t *testing.T) {
 	oldObj.Spec.Runtime = clawv1alpha1.RuntimeOpenClaw
 
 	newObj := baseClaw()
-	newObj.Spec.Runtime = clawv1alpha1.RuntimeNanoClaw
+	newObj.Spec.Runtime = clawv1alpha1.RuntimeHermesClaw
 
 	_, err := v.ValidateUpdate(context.Background(), oldObj, newObj)
 	if err == nil {
@@ -206,7 +202,7 @@ func TestValidateUpdate_CompoundErrors(t *testing.T) {
 	oldObj.Spec.Runtime = clawv1alpha1.RuntimeOpenClaw
 
 	newObj := baseClaw()
-	newObj.Spec.Runtime = clawv1alpha1.RuntimeNanoClaw
+	newObj.Spec.Runtime = clawv1alpha1.RuntimeHermesClaw
 	newObj.Spec.Credentials = &clawv1alpha1.CredentialSpec{
 		SecretRef:      &corev1.LocalObjectReference{Name: "s"},
 		ExternalSecret: &clawv1alpha1.ExternalSecretRef{Provider: "v", Store: "s", Path: "p"},

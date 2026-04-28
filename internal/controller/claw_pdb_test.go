@@ -24,11 +24,12 @@ import (
 func TestClawReconciler_PDBCreated(t *testing.T) {
 	ns := fmt.Sprintf("test-pdb-create-%d", time.Now().UnixNano())
 	createNamespace(t, ns)
+	ensureTestSecret(t, ns)
 
 	clawName := "pdb-create"
 	claw := &clawv1alpha1.Claw{
 		ObjectMeta: metav1.ObjectMeta{Name: clawName, Namespace: ns},
-		Spec:       clawv1alpha1.ClawSpec{Runtime: clawv1alpha1.RuntimePicoClaw},
+		Spec:       clawv1alpha1.ClawSpec{Runtime: clawv1alpha1.RuntimeOpenClaw, Credentials: testCredentials()},
 	}
 	require.NoError(t, k8sClient.Create(ctx, claw))
 
@@ -61,12 +62,14 @@ func TestClawReconciler_PDBCreated(t *testing.T) {
 func TestClawReconciler_PDBCustomMinAvailable(t *testing.T) {
 	ns := fmt.Sprintf("test-pdb-custom-%d", time.Now().UnixNano())
 	createNamespace(t, ns)
+	ensureTestSecret(t, ns)
 
 	clawName := "pdb-custom"
 	claw := &clawv1alpha1.Claw{
 		ObjectMeta: metav1.ObjectMeta{Name: clawName, Namespace: ns},
 		Spec: clawv1alpha1.ClawSpec{
-			Runtime: clawv1alpha1.RuntimePicoClaw,
+			Runtime:     clawv1alpha1.RuntimeOpenClaw,
+			Credentials: testCredentials(),
 			Availability: &clawv1alpha1.AvailabilitySpec{
 				PDB: &clawv1alpha1.PDBSpec{Enabled: true, MinAvailable: 2},
 			},
@@ -93,12 +96,14 @@ func TestClawReconciler_PDBCustomMinAvailable(t *testing.T) {
 func TestClawReconciler_PDBDisabled(t *testing.T) {
 	ns := fmt.Sprintf("test-pdb-disabled-%d", time.Now().UnixNano())
 	createNamespace(t, ns)
+	ensureTestSecret(t, ns)
 
 	clawName := "pdb-disabled"
 	claw := &clawv1alpha1.Claw{
 		ObjectMeta: metav1.ObjectMeta{Name: clawName, Namespace: ns},
 		Spec: clawv1alpha1.ClawSpec{
-			Runtime: clawv1alpha1.RuntimePicoClaw,
+			Runtime:     clawv1alpha1.RuntimeOpenClaw,
+			Credentials: testCredentials(),
 			Availability: &clawv1alpha1.AvailabilitySpec{
 				PDB: &clawv1alpha1.PDBSpec{Enabled: false},
 			},
@@ -128,11 +133,12 @@ func TestClawReconciler_PDBDisabled(t *testing.T) {
 func TestClawReconciler_PDBDeletedOnDisable(t *testing.T) {
 	ns := fmt.Sprintf("test-pdb-del-%d", time.Now().UnixNano())
 	createNamespace(t, ns)
+	ensureTestSecret(t, ns)
 
 	clawName := "pdb-del"
 	claw := &clawv1alpha1.Claw{
 		ObjectMeta: metav1.ObjectMeta{Name: clawName, Namespace: ns},
-		Spec:       clawv1alpha1.ClawSpec{Runtime: clawv1alpha1.RuntimePicoClaw},
+		Spec:       clawv1alpha1.ClawSpec{Runtime: clawv1alpha1.RuntimeOpenClaw, Credentials: testCredentials()},
 	}
 	require.NoError(t, k8sClient.Create(ctx, claw))
 

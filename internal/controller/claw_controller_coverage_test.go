@@ -250,6 +250,7 @@ func TestClawReconciler_ConfigMapWithUserConfig(t *testing.T) {
 func TestClawReconciler_ChannelSidecarInjected(t *testing.T) {
 	ns := fmt.Sprintf("test-ch-inject-%d", time.Now().UnixNano())
 	createNamespace(t, ns)
+	ensureTestSecret(t, ns)
 
 	// Create a ClawChannel.
 	channel := &clawv1alpha1.ClawChannel{
@@ -274,7 +275,8 @@ func TestClawReconciler_ChannelSidecarInjected(t *testing.T) {
 			Namespace: ns,
 		},
 		Spec: clawv1alpha1.ClawSpec{
-			Runtime: clawv1alpha1.RuntimeZeroClaw,
+			Runtime:     clawv1alpha1.RuntimeOpenClaw,
+			Credentials: testCredentials(),
 			Channels: []clawv1alpha1.ChannelRef{
 				{
 					Name: "test-slack-ch",
@@ -352,6 +354,7 @@ func TestClawReconciler_ChannelSidecarInjected(t *testing.T) {
 func TestClawReconciler_ChannelSidecarSkippedMissing(t *testing.T) {
 	ns := fmt.Sprintf("test-ch-skip-%d", time.Now().UnixNano())
 	createNamespace(t, ns)
+	ensureTestSecret(t, ns)
 
 	clawName := "test-claw-ch-skip"
 	claw := &clawv1alpha1.Claw{
@@ -360,7 +363,8 @@ func TestClawReconciler_ChannelSidecarSkippedMissing(t *testing.T) {
 			Namespace: ns,
 		},
 		Spec: clawv1alpha1.ClawSpec{
-			Runtime: clawv1alpha1.RuntimePicoClaw,
+			Runtime:     clawv1alpha1.RuntimeOpenClaw,
+			Credentials: testCredentials(),
 			Channels: []clawv1alpha1.ChannelRef{
 				{
 					Name: "nonexistent-channel",
@@ -401,6 +405,7 @@ func TestClawReconciler_ChannelSidecarSkippedMissing(t *testing.T) {
 func TestClawReconciler_ChannelSidecarSkippedIncompatible(t *testing.T) {
 	ns := fmt.Sprintf("test-ch-incompat-%d", time.Now().UnixNano())
 	createNamespace(t, ns)
+	ensureTestSecret(t, ns)
 
 	// Create an inbound-only channel.
 	channel := &clawv1alpha1.ClawChannel{
@@ -425,7 +430,8 @@ func TestClawReconciler_ChannelSidecarSkippedIncompatible(t *testing.T) {
 			Namespace: ns,
 		},
 		Spec: clawv1alpha1.ClawSpec{
-			Runtime: clawv1alpha1.RuntimePicoClaw,
+			Runtime:     clawv1alpha1.RuntimeOpenClaw,
+			Credentials: testCredentials(),
 			Channels: []clawv1alpha1.ChannelRef{
 				{
 					Name: "inbound-only-ch",
@@ -570,10 +576,11 @@ func TestClawReconciler_AllRuntimes(t *testing.T) {
 		needsCreds  bool
 		emptyConfig bool
 	}{
-		{clawv1alpha1.RuntimeNanoClaw, 19000, "ghcr.io/prismer-ai/k8s4claw-nanoclaw:latest", 30, false, false},
-		{clawv1alpha1.RuntimeZeroClaw, 3000, "ghcr.io/prismer-ai/k8s4claw-zeroclaw:latest", 20, false, false},
-		{clawv1alpha1.RuntimePicoClaw, 8080, "ghcr.io/prismer-ai/k8s4claw-picoclaw:latest", 17, false, false},
+		// gracePeriod = adapter.GracefulShutdownSeconds() + 15 (pod template adds 15s buffer)
+		// emptyConfig = true when adapter.DefaultConfig() returns no env / port keys (HermesClaw upstream image owns its own config)
+		{clawv1alpha1.RuntimeOpenClaw, 18900, "ghcr.io/prismer-ai/k8s4claw-openclaw:latest", 45, true, false},
 		{clawv1alpha1.RuntimeHermesClaw, 8642, "ghcr.io/nousresearch/hermes-agent:latest", 75, true, true},
+		{clawv1alpha1.RuntimeHermesRS, 8080, "ghcr.io/prismer-ai/hermes-agent-rs:latest", 45, true, false},
 	}
 
 	for _, rt := range runtimes {
@@ -681,6 +688,7 @@ func TestClawReconciler_AllRuntimes(t *testing.T) {
 func TestClawReconciler_PVCReclaimArchive(t *testing.T) {
 	ns := fmt.Sprintf("test-reclaim-arc-%d", time.Now().UnixNano())
 	createNamespace(t, ns)
+	ensureTestSecret(t, ns)
 
 	clawName := "test-claw-reclaim-arc"
 	claw := &clawv1alpha1.Claw{
@@ -689,7 +697,8 @@ func TestClawReconciler_PVCReclaimArchive(t *testing.T) {
 			Namespace: ns,
 		},
 		Spec: clawv1alpha1.ClawSpec{
-			Runtime: clawv1alpha1.RuntimePicoClaw,
+			Runtime:     clawv1alpha1.RuntimeOpenClaw,
+			Credentials: testCredentials(),
 			Persistence: &clawv1alpha1.PersistenceSpec{
 				ReclaimPolicy: clawv1alpha1.ReclaimArchive,
 			},
@@ -835,6 +844,7 @@ func TestClawReconciler_ConfigMapUpdated(t *testing.T) {
 func TestClawReconciler_CustomChannelSidecar(t *testing.T) {
 	ns := fmt.Sprintf("test-ch-custom-%d", time.Now().UnixNano())
 	createNamespace(t, ns)
+	ensureTestSecret(t, ns)
 
 	// Create a custom ClawChannel with sidecar spec.
 	channel := &clawv1alpha1.ClawChannel{
@@ -874,7 +884,8 @@ func TestClawReconciler_CustomChannelSidecar(t *testing.T) {
 			Namespace: ns,
 		},
 		Spec: clawv1alpha1.ClawSpec{
-			Runtime: clawv1alpha1.RuntimePicoClaw,
+			Runtime:     clawv1alpha1.RuntimeOpenClaw,
+			Credentials: testCredentials(),
 			Channels: []clawv1alpha1.ChannelRef{
 				{Name: "custom-adapter", Mode: clawv1alpha1.ChannelModeBidirectional},
 			},
@@ -944,6 +955,7 @@ func TestClawReconciler_CustomChannelSidecar(t *testing.T) {
 func TestClawReconciler_ChannelWithCredentials(t *testing.T) {
 	ns := fmt.Sprintf("test-ch-cred-%d", time.Now().UnixNano())
 	createNamespace(t, ns)
+	ensureTestSecret(t, ns)
 
 	// Create a secret for the channel.
 	secret := &corev1.Secret{
@@ -983,7 +995,8 @@ func TestClawReconciler_ChannelWithCredentials(t *testing.T) {
 			Namespace: ns,
 		},
 		Spec: clawv1alpha1.ClawSpec{
-			Runtime: clawv1alpha1.RuntimePicoClaw,
+			Runtime:     clawv1alpha1.RuntimeOpenClaw,
+			Credentials: testCredentials(),
 			Channels: []clawv1alpha1.ChannelRef{
 				{Name: "cred-slack", Mode: clawv1alpha1.ChannelModeBidirectional},
 			},
@@ -1038,6 +1051,7 @@ func TestClawReconciler_ChannelWithCredentials(t *testing.T) {
 func TestClawReconciler_ChannelWithConfig(t *testing.T) {
 	ns := fmt.Sprintf("test-ch-cfg-%d", time.Now().UnixNano())
 	createNamespace(t, ns)
+	ensureTestSecret(t, ns)
 
 	configJSON := `{"webhook_url":"https://example.com/hook","timeout":30}`
 	channel := &clawv1alpha1.ClawChannel{
@@ -1062,7 +1076,8 @@ func TestClawReconciler_ChannelWithConfig(t *testing.T) {
 			Namespace: ns,
 		},
 		Spec: clawv1alpha1.ClawSpec{
-			Runtime: clawv1alpha1.RuntimePicoClaw,
+			Runtime:     clawv1alpha1.RuntimeOpenClaw,
+			Credentials: testCredentials(),
 			Channels: []clawv1alpha1.ChannelRef{
 				{Name: "cfg-webhook", Mode: clawv1alpha1.ChannelModeBidirectional},
 			},
@@ -1225,6 +1240,7 @@ func TestClawReconciler_CredentialBothSecretRefAndKeys(t *testing.T) {
 func TestClawReconciler_FindClawsForChannel(t *testing.T) {
 	ns := fmt.Sprintf("test-find-ch-%d", time.Now().UnixNano())
 	createNamespace(t, ns)
+	ensureTestSecret(t, ns)
 
 	// Create a ClawChannel.
 	channel := &clawv1alpha1.ClawChannel{
@@ -1249,7 +1265,8 @@ func TestClawReconciler_FindClawsForChannel(t *testing.T) {
 			Namespace: ns,
 		},
 		Spec: clawv1alpha1.ClawSpec{
-			Runtime: clawv1alpha1.RuntimePicoClaw,
+			Runtime:     clawv1alpha1.RuntimeOpenClaw,
+			Credentials: testCredentials(),
 			Channels: []clawv1alpha1.ChannelRef{
 				{Name: "watched-channel", Mode: clawv1alpha1.ChannelModeBidirectional},
 			},
@@ -1300,6 +1317,7 @@ func TestClawReconciler_FindClawsForChannel(t *testing.T) {
 func TestClawReconciler_ChannelWithCustomResources(t *testing.T) {
 	ns := fmt.Sprintf("test-ch-res-%d", time.Now().UnixNano())
 	createNamespace(t, ns)
+	ensureTestSecret(t, ns)
 
 	channel := &clawv1alpha1.ClawChannel{
 		ObjectMeta: metav1.ObjectMeta{
@@ -1332,7 +1350,8 @@ func TestClawReconciler_ChannelWithCustomResources(t *testing.T) {
 			Namespace: ns,
 		},
 		Spec: clawv1alpha1.ClawSpec{
-			Runtime: clawv1alpha1.RuntimePicoClaw,
+			Runtime:     clawv1alpha1.RuntimeOpenClaw,
+			Credentials: testCredentials(),
 			Channels: []clawv1alpha1.ChannelRef{
 				{Name: "res-channel", Mode: clawv1alpha1.ChannelModeBidirectional},
 			},
@@ -1438,9 +1457,6 @@ func TestClawChannelReconciler_DeletionNoReferences(t *testing.T) {
 func newFakeReconciler(c client.Client) *ClawReconciler {
 	registry := clawruntime.NewRegistry()
 	registry.Register(clawv1alpha1.RuntimeOpenClaw, &clawruntime.OpenClawAdapter{})
-	registry.Register(clawv1alpha1.RuntimeNanoClaw, &clawruntime.NanoClawAdapter{})
-	registry.Register(clawv1alpha1.RuntimeZeroClaw, &clawruntime.ZeroClawAdapter{})
-	registry.Register(clawv1alpha1.RuntimePicoClaw, &clawruntime.PicoClawAdapter{})
 	registry.Register(clawv1alpha1.RuntimeHermesClaw, &clawruntime.HermesClawAdapter{})
 	return &ClawReconciler{
 		Client:                c,
@@ -3036,7 +3052,7 @@ func TestBuildServiceAccount_Defaults(t *testing.T) {
 			name: "default SA named after claw",
 			claw: &clawv1alpha1.Claw{
 				ObjectMeta: metav1.ObjectMeta{Name: "my-agent", Namespace: "default"},
-				Spec:       clawv1alpha1.ClawSpec{Runtime: clawv1alpha1.RuntimeOpenClaw},
+				Spec:       clawv1alpha1.ClawSpec{Runtime: clawv1alpha1.RuntimeOpenClaw, Credentials: testCredentials()},
 			},
 			wantName:       "my-agent",
 			wantAnnotation: nil,
@@ -3046,7 +3062,8 @@ func TestBuildServiceAccount_Defaults(t *testing.T) {
 			claw: &clawv1alpha1.Claw{
 				ObjectMeta: metav1.ObjectMeta{Name: "my-agent", Namespace: "default"},
 				Spec: clawv1alpha1.ClawSpec{
-					Runtime: clawv1alpha1.RuntimeOpenClaw,
+					Runtime:     clawv1alpha1.RuntimeOpenClaw,
+					Credentials: testCredentials(),
 					ServiceAccount: &clawv1alpha1.ServiceAccountRef{
 						Annotations: map[string]string{
 							"eks.amazonaws.com/role-arn": "arn:aws:iam::role/test",
@@ -3314,7 +3331,8 @@ func TestBuildRole(t *testing.T) {
 			Namespace: "prod",
 		},
 		Spec: clawv1alpha1.ClawSpec{
-			Runtime: clawv1alpha1.RuntimeOpenClaw,
+			Runtime:     clawv1alpha1.RuntimeOpenClaw,
+			Credentials: testCredentials(),
 		},
 	}
 
@@ -3372,7 +3390,8 @@ func TestBuildRoleBinding(t *testing.T) {
 			Namespace: "prod",
 		},
 		Spec: clawv1alpha1.ClawSpec{
-			Runtime: clawv1alpha1.RuntimeOpenClaw,
+			Runtime:     clawv1alpha1.RuntimeOpenClaw,
+			Credentials: testCredentials(),
 		},
 	}
 
@@ -3403,7 +3422,8 @@ func TestBuildRoleBinding_UserManagedSA(t *testing.T) {
 			Namespace: "prod",
 		},
 		Spec: clawv1alpha1.ClawSpec{
-			Runtime: clawv1alpha1.RuntimeOpenClaw,
+			Runtime:     clawv1alpha1.RuntimeOpenClaw,
+			Credentials: testCredentials(),
 			ServiceAccount: &clawv1alpha1.ServiceAccountRef{
 				Name: "custom-sa",
 			},
@@ -3420,7 +3440,7 @@ func TestBuildRoleBinding_UserManagedSA(t *testing.T) {
 func TestNeedsRBAC_CurrentlyAlwaysFalse(t *testing.T) {
 	claw := &clawv1alpha1.Claw{
 		ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "default"},
-		Spec:       clawv1alpha1.ClawSpec{Runtime: clawv1alpha1.RuntimeOpenClaw},
+		Spec:       clawv1alpha1.ClawSpec{Runtime: clawv1alpha1.RuntimeOpenClaw, Credentials: testCredentials()},
 	}
 	if needsRBAC(claw) {
 		t.Error("expected needsRBAC to return false until SelfConfigure field is added to CRD")
@@ -3435,7 +3455,8 @@ func TestBuildNetworkPolicy(t *testing.T) {
 	claw := &clawv1alpha1.Claw{
 		ObjectMeta: metav1.ObjectMeta{Name: "my-agent", Namespace: "prod"},
 		Spec: clawv1alpha1.ClawSpec{
-			Runtime: clawv1alpha1.RuntimeOpenClaw,
+			Runtime:     clawv1alpha1.RuntimeOpenClaw,
+			Credentials: testCredentials(),
 			Security: &clawv1alpha1.SecuritySpec{
 				NetworkPolicy: &clawv1alpha1.NetworkPolicySpec{
 					Enabled: true,
@@ -3497,7 +3518,8 @@ func TestBuildNetworkPolicy_WithCustomEgress(t *testing.T) {
 	claw := &clawv1alpha1.Claw{
 		ObjectMeta: metav1.ObjectMeta{Name: "my-agent", Namespace: "prod"},
 		Spec: clawv1alpha1.ClawSpec{
-			Runtime: clawv1alpha1.RuntimeOpenClaw,
+			Runtime:     clawv1alpha1.RuntimeOpenClaw,
+			Credentials: testCredentials(),
 			Security: &clawv1alpha1.SecuritySpec{
 				NetworkPolicy: &clawv1alpha1.NetworkPolicySpec{
 					Enabled:            true,
@@ -3522,7 +3544,8 @@ func TestBuildNetworkPolicy_WithCrossNamespaceIngress(t *testing.T) {
 	claw := &clawv1alpha1.Claw{
 		ObjectMeta: metav1.ObjectMeta{Name: "my-agent", Namespace: "prod"},
 		Spec: clawv1alpha1.ClawSpec{
-			Runtime: clawv1alpha1.RuntimeOpenClaw,
+			Runtime:     clawv1alpha1.RuntimeOpenClaw,
+			Credentials: testCredentials(),
 			Security: &clawv1alpha1.SecuritySpec{
 				NetworkPolicy: &clawv1alpha1.NetworkPolicySpec{
 					Enabled:                  true,
@@ -3550,7 +3573,8 @@ func TestBuildNetworkPolicy_WithIngressEnabled(t *testing.T) {
 	claw := &clawv1alpha1.Claw{
 		ObjectMeta: metav1.ObjectMeta{Name: "my-agent", Namespace: "prod"},
 		Spec: clawv1alpha1.ClawSpec{
-			Runtime: clawv1alpha1.RuntimeOpenClaw,
+			Runtime:     clawv1alpha1.RuntimeOpenClaw,
+			Credentials: testCredentials(),
 			Security: &clawv1alpha1.SecuritySpec{
 				NetworkPolicy: &clawv1alpha1.NetworkPolicySpec{
 					Enabled: true,
@@ -3632,7 +3656,8 @@ func TestBuildIngress_Basic(t *testing.T) {
 	claw := &clawv1alpha1.Claw{
 		ObjectMeta: metav1.ObjectMeta{Name: "my-agent", Namespace: "prod"},
 		Spec: clawv1alpha1.ClawSpec{
-			Runtime: clawv1alpha1.RuntimeOpenClaw,
+			Runtime:     clawv1alpha1.RuntimeOpenClaw,
+			Credentials: testCredentials(),
 			Ingress: &clawv1alpha1.IngressSpec{
 				Enabled: true,
 				Host:    "agent.example.com",
@@ -3666,7 +3691,8 @@ func TestBuildIngress_WithTLS(t *testing.T) {
 	claw := &clawv1alpha1.Claw{
 		ObjectMeta: metav1.ObjectMeta{Name: "my-agent", Namespace: "prod"},
 		Spec: clawv1alpha1.ClawSpec{
-			Runtime: clawv1alpha1.RuntimeOpenClaw,
+			Runtime:     clawv1alpha1.RuntimeOpenClaw,
+			Credentials: testCredentials(),
 			Ingress: &clawv1alpha1.IngressSpec{
 				Enabled:   true,
 				Host:      "agent.example.com",
@@ -3697,7 +3723,8 @@ func TestBuildIngress_WithBasicAuth(t *testing.T) {
 	claw := &clawv1alpha1.Claw{
 		ObjectMeta: metav1.ObjectMeta{Name: "my-agent", Namespace: "prod"},
 		Spec: clawv1alpha1.ClawSpec{
-			Runtime: clawv1alpha1.RuntimeOpenClaw,
+			Runtime:     clawv1alpha1.RuntimeOpenClaw,
+			Credentials: testCredentials(),
 			Ingress: &clawv1alpha1.IngressSpec{
 				Enabled: true,
 				Host:    "agent.example.com",
@@ -3722,7 +3749,8 @@ func TestBuildIngress_WithCustomAnnotations(t *testing.T) {
 	claw := &clawv1alpha1.Claw{
 		ObjectMeta: metav1.ObjectMeta{Name: "my-agent", Namespace: "prod"},
 		Spec: clawv1alpha1.ClawSpec{
-			Runtime: clawv1alpha1.RuntimeOpenClaw,
+			Runtime:     clawv1alpha1.RuntimeOpenClaw,
+			Credentials: testCredentials(),
 			Ingress: &clawv1alpha1.IngressSpec{
 				Enabled: true,
 				Host:    "agent.example.com",
@@ -3752,7 +3780,7 @@ func TestEnsureIngress_NoOp(t *testing.T) {
 	// When ingress is nil, ensureIngress should be a no-op.
 	claw := &clawv1alpha1.Claw{
 		ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "default"},
-		Spec:       clawv1alpha1.ClawSpec{Runtime: clawv1alpha1.RuntimeOpenClaw},
+		Spec:       clawv1alpha1.ClawSpec{Runtime: clawv1alpha1.RuntimeOpenClaw, Credentials: testCredentials()},
 	}
 	if claw.Spec.Ingress != nil {
 		t.Error("expected nil ingress spec")
@@ -3772,7 +3800,7 @@ func TestEnsureIngress_NoOp(t *testing.T) {
 func TestBuildPDB_Default(t *testing.T) {
 	claw := &clawv1alpha1.Claw{
 		ObjectMeta: metav1.ObjectMeta{Name: "my-agent", Namespace: "prod"},
-		Spec:       clawv1alpha1.ClawSpec{Runtime: clawv1alpha1.RuntimeOpenClaw},
+		Spec:       clawv1alpha1.ClawSpec{Runtime: clawv1alpha1.RuntimeOpenClaw, Credentials: testCredentials()},
 	}
 	pdb := buildPDB(claw)
 
@@ -3794,7 +3822,8 @@ func TestBuildPDB_CustomMinAvailable(t *testing.T) {
 	claw := &clawv1alpha1.Claw{
 		ObjectMeta: metav1.ObjectMeta{Name: "my-agent", Namespace: "prod"},
 		Spec: clawv1alpha1.ClawSpec{
-			Runtime: clawv1alpha1.RuntimeOpenClaw,
+			Runtime:     clawv1alpha1.RuntimeOpenClaw,
+			Credentials: testCredentials(),
 			Availability: &clawv1alpha1.AvailabilitySpec{
 				PDB: &clawv1alpha1.PDBSpec{
 					Enabled:      true,
@@ -4127,7 +4156,8 @@ func TestInjectIPCBusSidecar(t *testing.T) {
 	claw := &clawv1alpha1.Claw{
 		ObjectMeta: metav1.ObjectMeta{Name: "my-agent", Namespace: "prod"},
 		Spec: clawv1alpha1.ClawSpec{
-			Runtime: clawv1alpha1.RuntimeOpenClaw,
+			Runtime:     clawv1alpha1.RuntimeOpenClaw,
+			Credentials: testCredentials(),
 			Channels: []clawv1alpha1.ChannelRef{
 				{Name: "ch1"},
 			},

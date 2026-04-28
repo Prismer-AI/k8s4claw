@@ -310,8 +310,9 @@ func TestReconcile_AutoUpdateDisabled(t *testing.T) {
 	claw := &clawv1alpha1.Claw{
 		ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "default"},
 		Spec: clawv1alpha1.ClawSpec{
-			Runtime:    clawv1alpha1.RuntimeOpenClaw,
-			AutoUpdate: nil, // disabled
+			Runtime:     clawv1alpha1.RuntimeOpenClaw,
+			Credentials: testCredentials(),
+			AutoUpdate:  nil, // disabled
 		},
 	}
 
@@ -341,7 +342,8 @@ func TestReconcile_AutoUpdateEnabled_NoNewVersion(t *testing.T) {
 	claw := &clawv1alpha1.Claw{
 		ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "default"},
 		Spec: clawv1alpha1.ClawSpec{
-			Runtime: clawv1alpha1.RuntimeOpenClaw,
+			Runtime:     clawv1alpha1.RuntimeOpenClaw,
+			Credentials: testCredentials(),
 			AutoUpdate: &clawv1alpha1.AutoUpdateSpec{
 				Enabled:  true,
 				Schedule: "0 3 * * *",
@@ -398,7 +400,8 @@ func TestReconcile_CircuitBreakerOpen(t *testing.T) {
 	claw := &clawv1alpha1.Claw{
 		ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "default"},
 		Spec: clawv1alpha1.ClawSpec{
-			Runtime: clawv1alpha1.RuntimeOpenClaw,
+			Runtime:     clawv1alpha1.RuntimeOpenClaw,
+			Credentials: testCredentials(),
 			AutoUpdate: &clawv1alpha1.AutoUpdateSpec{
 				Enabled:           true,
 				VersionConstraint: ">=0.0.0",

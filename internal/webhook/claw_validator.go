@@ -134,11 +134,9 @@ func (v *ClawValidator) validateRuntime(ctx context.Context, obj *clawv1alpha1.C
 		return field.ErrorList{
 			field.NotSupported(field.NewPath("spec", "runtime"), obj.Spec.Runtime, []string{
 				string(clawv1alpha1.RuntimeOpenClaw),
-				string(clawv1alpha1.RuntimeNanoClaw),
-				string(clawv1alpha1.RuntimeZeroClaw),
-				string(clawv1alpha1.RuntimePicoClaw),
-				string(clawv1alpha1.RuntimeIronClaw),
 				string(clawv1alpha1.RuntimeHermesClaw),
+				string(clawv1alpha1.RuntimeHermesRS),
+				string(clawv1alpha1.RuntimeK8sOps),
 			}),
 		}
 	}

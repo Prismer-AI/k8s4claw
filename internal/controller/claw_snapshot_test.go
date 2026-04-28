@@ -22,12 +22,14 @@ import (
 func TestClawReconciler_SnapshotCreated(t *testing.T) {
 	ns := fmt.Sprintf("test-snap-create-%d", time.Now().UnixNano())
 	createNamespace(t, ns)
+	ensureTestSecret(t, ns)
 
 	clawName := "snap-create"
 	claw := &clawv1alpha1.Claw{
 		ObjectMeta: metav1.ObjectMeta{Name: clawName, Namespace: ns},
 		Spec: clawv1alpha1.ClawSpec{
-			Runtime: clawv1alpha1.RuntimePicoClaw,
+			Runtime:     clawv1alpha1.RuntimeOpenClaw,
+			Credentials: testCredentials(),
 			Persistence: &clawv1alpha1.PersistenceSpec{
 				Session: &clawv1alpha1.VolumeSpec{
 					Enabled:   true,
@@ -83,11 +85,12 @@ func TestClawReconciler_SnapshotCreated(t *testing.T) {
 func TestClawReconciler_SnapshotNotCreatedWithoutPersistence(t *testing.T) {
 	ns := fmt.Sprintf("test-snap-nop-%d", time.Now().UnixNano())
 	createNamespace(t, ns)
+	ensureTestSecret(t, ns)
 
 	clawName := "snap-nop"
 	claw := &clawv1alpha1.Claw{
 		ObjectMeta: metav1.ObjectMeta{Name: clawName, Namespace: ns},
-		Spec:       clawv1alpha1.ClawSpec{Runtime: clawv1alpha1.RuntimePicoClaw},
+		Spec:       clawv1alpha1.ClawSpec{Runtime: clawv1alpha1.RuntimeOpenClaw, Credentials: testCredentials()},
 	}
 	require.NoError(t, k8sClient.Create(ctx, claw))
 
@@ -120,12 +123,14 @@ func TestClawReconciler_SnapshotNotCreatedWithoutPersistence(t *testing.T) {
 func TestClawReconciler_SnapshotPruning(t *testing.T) {
 	ns := fmt.Sprintf("test-snap-prune-%d", time.Now().UnixNano())
 	createNamespace(t, ns)
+	ensureTestSecret(t, ns)
 
 	clawName := "snap-prune"
 	claw := &clawv1alpha1.Claw{
 		ObjectMeta: metav1.ObjectMeta{Name: clawName, Namespace: ns},
 		Spec: clawv1alpha1.ClawSpec{
-			Runtime: clawv1alpha1.RuntimePicoClaw,
+			Runtime:     clawv1alpha1.RuntimeOpenClaw,
+			Credentials: testCredentials(),
 			Persistence: &clawv1alpha1.PersistenceSpec{
 				Session: &clawv1alpha1.VolumeSpec{
 					Enabled:   true,
