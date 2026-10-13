@@ -1,0 +1,171 @@
+{
+  "label": "03-stock-startup",
+  "utc": "2026-10-13T02:59:28.633741+00:00",
+  "claw_annotations": {
+    "claw.prismer.ai/image-pull-policy": "Never",
+    "claw.prismer.ai/target-image": "ghcr.io/prismer-ai/k8s4claw-openclaw:0.0.1"
+  },
+  "claw_status": {
+    "conditions": [
+      {
+        "lastTransitionTime": "2026-10-13T02:59:26Z",
+        "message": "Waiting for StatefulSet to become ready",
+        "observedGeneration": 1,
+        "reason": "StatefulSetNotReady",
+        "status": "False",
+        "type": "RuntimeReady"
+      }
+    ],
+    "observedGeneration": 1,
+    "phase": "Provisioning"
+  },
+  "sts_generation": 1,
+  "sts_status": {
+    "availableReplicas": 0,
+    "collisionCount": 0,
+    "currentReplicas": 1,
+    "currentRevision": "agent-6f4b877c9c",
+    "observedGeneration": 1,
+    "replicas": 1,
+    "updateRevision": "agent-6f4b877c9c",
+    "updatedReplicas": 1
+  },
+  "sts_image": "ghcr.io/prismer-ai/k8s4claw-openclaw:0.0.1",
+  "pod_uid": "a04bf55a-f63e-4256-a4ef-b8d811589151",
+  "pod_revision": "agent-6f4b877c9c",
+  "pod_images": [
+    "ghcr.io/prismer-ai/k8s4claw-openclaw:0.0.1"
+  ],
+  "pod_status": {
+    "conditions": [
+      {
+        "lastProbeTime": null,
+        "lastTransitionTime": "2026-10-13T02:59:27Z",
+        "status": "True",
+        "type": "PodReadyToStartContainers"
+      },
+      {
+        "lastProbeTime": null,
+        "lastTransitionTime": "2026-10-13T02:59:26Z",
+        "message": "containers with incomplete status: [claw-init]",
+        "reason": "ContainersNotInitialized",
+        "status": "False",
+        "type": "Initialized"
+      },
+      {
+        "lastProbeTime": null,
+        "lastTransitionTime": "2026-10-13T02:59:26Z",
+        "message": "containers with unready status: [runtime]",
+        "reason": "ContainersNotReady",
+        "status": "False",
+        "type": "Ready"
+      },
+      {
+        "lastProbeTime": null,
+        "lastTransitionTime": "2026-10-13T02:59:26Z",
+        "message": "containers with unready status: [runtime]",
+        "reason": "ContainersNotReady",
+        "status": "False",
+        "type": "ContainersReady"
+      },
+      {
+        "lastProbeTime": null,
+        "lastTransitionTime": "2026-10-13T02:59:26Z",
+        "status": "True",
+        "type": "PodScheduled"
+      }
+    ],
+    "containerStatuses": [
+      {
+        "image": "ghcr.io/prismer-ai/k8s4claw-openclaw:0.0.1",
+        "imageID": "",
+        "lastState": {},
+        "name": "runtime",
+        "ready": false,
+        "restartCount": 0,
+        "started": false,
+        "state": {
+          "waiting": {
+            "reason": "PodInitializing"
+          }
+        },
+        "volumeMounts": [
+          {
+            "mountPath": "/var/run/claw",
+            "name": "ipc-socket"
+          },
+          {
+            "mountPath": "/var/lib/claw/wal",
+            "name": "wal-data"
+          },
+          {
+            "mountPath": "/etc/claw",
+            "name": "config-vol",
+            "readOnly": true,
+            "recursiveReadOnly": "Disabled"
+          },
+          {
+            "mountPath": "/tmp",
+            "name": "tmp"
+          }
+        ]
+      }
+    ],
+    "hostIP": "172.19.0.2",
+    "hostIPs": [
+      {
+        "ip": "172.19.0.2"
+      }
+    ],
+    "initContainerStatuses": [
+      {
+        "containerID": "containerd://ceca88bdc0f1a284e7fa95fa6463b9e336367210d7fce87cb131180622a55be2",
+        "image": "docker.io/library/claw-init-test:stock",
+        "imageID": "sha256:e6820e05fcd29f998dcb52de3720ee3502c54b9cf8328a0a67f06acfa5220a34",
+        "lastState": {
+          "terminated": {
+            "containerID": "containerd://2098cb8c396271238fc715178e631c59a27d7c9116f4690e9d4ee400781514d3",
+            "exitCode": 1,
+            "finishedAt": "2026-10-13T02:59:27Z",
+            "reason": "Error",
+            "startedAt": "2026-10-13T02:59:27Z"
+          }
+        },
+        "name": "claw-init",
+        "ready": false,
+        "restartCount": 1,
+        "started": false,
+        "state": {
+          "terminated": {
+            "containerID": "containerd://ceca88bdc0f1a284e7fa95fa6463b9e336367210d7fce87cb131180622a55be2",
+            "exitCode": 1,
+            "finishedAt": "2026-10-13T02:59:27Z",
+            "reason": "Error",
+            "startedAt": "2026-10-13T02:59:27Z"
+          }
+        },
+        "volumeMounts": [
+          {
+            "mountPath": "/etc/claw",
+            "name": "config-vol",
+            "readOnly": true,
+            "recursiveReadOnly": "Disabled"
+          },
+          {
+            "mountPath": "/tmp",
+            "name": "tmp"
+          }
+        ]
+      }
+    ],
+    "phase": "Pending",
+    "podIP": "10.244.0.6",
+    "podIPs": [
+      {
+        "ip": "10.244.0.6"
+      }
+    ],
+    "qosClass": "Burstable",
+    "startTime": "2026-10-13T02:59:26Z"
+  }
+}

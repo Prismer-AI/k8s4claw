@@ -1,0 +1,159 @@
+{
+  "label": "04-diagnostic-startup",
+  "utc": "2026-10-13T02:59:46.246054+00:00",
+  "claw_annotations": {
+    "claw.prismer.ai/image-pull-policy": "Never",
+    "claw.prismer.ai/target-image": "ghcr.io/prismer-ai/k8s4claw-openclaw:0.0.1"
+  },
+  "claw_status": {
+    "conditions": [
+      {
+        "lastTransitionTime": "2026-10-13T02:59:44Z",
+        "message": "StatefulSet has ready replicas",
+        "observedGeneration": 1,
+        "reason": "StatefulSetReady",
+        "status": "True",
+        "type": "RuntimeReady"
+      }
+    ],
+    "observedGeneration": 1,
+    "phase": "Running"
+  },
+  "sts_generation": 46,
+  "sts_status": {
+    "availableReplicas": 1,
+    "collisionCount": 0,
+    "currentReplicas": 1,
+    "currentRevision": "agent-7998665dd6",
+    "observedGeneration": 46,
+    "readyReplicas": 1,
+    "replicas": 1,
+    "updateRevision": "agent-7998665dd6",
+    "updatedReplicas": 1
+  },
+  "sts_image": "ghcr.io/prismer-ai/k8s4claw-openclaw:0.0.1",
+  "pod_uid": "04975937-ba0e-4092-a275-21014995f84d",
+  "pod_revision": "agent-7998665dd6",
+  "pod_images": [
+    "ghcr.io/prismer-ai/k8s4claw-openclaw:0.0.1"
+  ],
+  "pod_status": {
+    "conditions": [
+      {
+        "lastProbeTime": null,
+        "lastTransitionTime": "2026-10-13T02:59:32Z",
+        "status": "True",
+        "type": "PodReadyToStartContainers"
+      },
+      {
+        "lastProbeTime": null,
+        "lastTransitionTime": "2026-10-13T02:59:32Z",
+        "status": "True",
+        "type": "Initialized"
+      },
+      {
+        "lastProbeTime": null,
+        "lastTransitionTime": "2026-10-13T02:59:44Z",
+        "status": "True",
+        "type": "Ready"
+      },
+      {
+        "lastProbeTime": null,
+        "lastTransitionTime": "2026-10-13T02:59:44Z",
+        "status": "True",
+        "type": "ContainersReady"
+      },
+      {
+        "lastProbeTime": null,
+        "lastTransitionTime": "2026-10-13T02:59:31Z",
+        "status": "True",
+        "type": "PodScheduled"
+      }
+    ],
+    "containerStatuses": [
+      {
+        "containerID": "containerd://3c41f3db59c4bc02ac58209b0f23a8b238429add5c0a3ac2a67c39ebb0c36aaa",
+        "image": "ghcr.io/prismer-ai/k8s4claw-openclaw:0.0.1",
+        "imageID": "sha256:b0bf3798ff1066ba7a6ea3d5b6c79d0bbe2dad8d53e4dc416244df4607f49edc",
+        "lastState": {},
+        "name": "runtime",
+        "ready": true,
+        "restartCount": 0,
+        "started": true,
+        "state": {
+          "running": {
+            "startedAt": "2026-10-13T02:59:32Z"
+          }
+        },
+        "volumeMounts": [
+          {
+            "mountPath": "/var/run/claw",
+            "name": "ipc-socket"
+          },
+          {
+            "mountPath": "/var/lib/claw/wal",
+            "name": "wal-data"
+          },
+          {
+            "mountPath": "/etc/claw",
+            "name": "config-vol",
+            "readOnly": true,
+            "recursiveReadOnly": "Disabled"
+          },
+          {
+            "mountPath": "/tmp",
+            "name": "tmp"
+          }
+        ]
+      }
+    ],
+    "hostIP": "172.19.0.2",
+    "hostIPs": [
+      {
+        "ip": "172.19.0.2"
+      }
+    ],
+    "initContainerStatuses": [
+      {
+        "containerID": "containerd://e0ad7cb30d4151c79b438f72cc00d8b114d9fac47e9dfae7ead895225d44047d",
+        "image": "docker.io/library/claw-init-test:diagnostic",
+        "imageID": "sha256:1e7701828d653cd687329feca0435923277571036545d04d6000b1d54dc5045a",
+        "lastState": {},
+        "name": "claw-init",
+        "ready": true,
+        "restartCount": 0,
+        "started": false,
+        "state": {
+          "terminated": {
+            "containerID": "containerd://e0ad7cb30d4151c79b438f72cc00d8b114d9fac47e9dfae7ead895225d44047d",
+            "exitCode": 0,
+            "finishedAt": "2026-10-13T02:59:31Z",
+            "reason": "Completed",
+            "startedAt": "2026-10-13T02:59:31Z"
+          }
+        },
+        "volumeMounts": [
+          {
+            "mountPath": "/etc/claw",
+            "name": "config-vol",
+            "readOnly": true,
+            "recursiveReadOnly": "Disabled"
+          },
+          {
+            "mountPath": "/tmp",
+            "name": "tmp"
+          }
+        ]
+      }
+    ],
+    "phase": "Running",
+    "podIP": "10.244.0.8",
+    "podIPs": [
+      {
+        "ip": "10.244.0.8"
+      }
+    ],
+    "qosClass": "Burstable",
+    "startTime": "2026-10-13T02:59:31Z"
+  }
+}

@@ -1,0 +1,193 @@
+{
+  "label": "09-after-operator-recovery",
+  "utc": "2026-10-13T03:04:29.060936+00:00",
+  "claw_annotations": {
+    "claw.prismer.ai/image-pull-policy": "Never"
+  },
+  "claw_status": {
+    "autoUpdate": {
+      "availableVersion": "0.0.3",
+      "currentVersion": "0.0.2",
+      "failedVersions": [
+        "0.0.3"
+      ],
+      "lastCheck": "2026-10-13T03:03:10Z",
+      "rollbackCount": 1,
+      "versionHistory": [
+        {
+          "appliedAt": "2026-10-13T03:00:49Z",
+          "status": "RolledBack",
+          "version": "0.0.3"
+        }
+      ]
+    },
+    "conditions": [
+      {
+        "lastTransitionTime": "2026-10-13T03:03:11Z",
+        "message": "Waiting for StatefulSet to become ready",
+        "observedGeneration": 6,
+        "reason": "StatefulSetNotReady",
+        "status": "False",
+        "type": "RuntimeReady"
+      },
+      {
+        "lastTransitionTime": "2026-10-13T03:00:49Z",
+        "message": "Version 0.0.3 rolled back: health check timed out",
+        "observedGeneration": 3,
+        "reason": "RolledBack",
+        "status": "False",
+        "type": "AutoUpdateInProgress"
+      }
+    ],
+    "observedGeneration": 6,
+    "phase": "Provisioning"
+  },
+  "sts_generation": 52,
+  "sts_status": {
+    "availableReplicas": 0,
+    "collisionCount": 0,
+    "currentRevision": "agent-68fd5c44d7",
+    "observedGeneration": 52,
+    "replicas": 1,
+    "updateRevision": "agent-5595b7875b"
+  },
+  "sts_image": "ghcr.io/prismer-ai/k8s4claw-openclaw:latest",
+  "pod_uid": "eb613f31-e534-4938-bc6c-384417bbb14c",
+  "pod_revision": "agent-5889769c56",
+  "pod_images": [
+    "ghcr.io/prismer-ai/k8s4claw-openclaw:0.0.3"
+  ],
+  "pod_status": {
+    "conditions": [
+      {
+        "lastProbeTime": null,
+        "lastTransitionTime": "2026-10-13T03:03:11Z",
+        "status": "True",
+        "type": "PodReadyToStartContainers"
+      },
+      {
+        "lastProbeTime": null,
+        "lastTransitionTime": "2026-10-13T03:03:11Z",
+        "status": "True",
+        "type": "Initialized"
+      },
+      {
+        "lastProbeTime": null,
+        "lastTransitionTime": "2026-10-13T03:03:10Z",
+        "message": "containers with unready status: [runtime]",
+        "reason": "ContainersNotReady",
+        "status": "False",
+        "type": "Ready"
+      },
+      {
+        "lastProbeTime": null,
+        "lastTransitionTime": "2026-10-13T03:03:10Z",
+        "message": "containers with unready status: [runtime]",
+        "reason": "ContainersNotReady",
+        "status": "False",
+        "type": "ContainersReady"
+      },
+      {
+        "lastProbeTime": null,
+        "lastTransitionTime": "2026-10-13T03:03:10Z",
+        "status": "True",
+        "type": "PodScheduled"
+      }
+    ],
+    "containerStatuses": [
+      {
+        "containerID": "containerd://9f0d9fbf621de79fa8cea7fad8190245595b818fa625450ccea486454c3e0f41",
+        "image": "ghcr.io/prismer-ai/k8s4claw-openclaw:0.0.3",
+        "imageID": "sha256:f41be5af6687e1582501bed9065afd611038a2f48b433a717ed257b3dba3f341",
+        "lastState": {
+          "terminated": {
+            "containerID": "containerd://9f0d9fbf621de79fa8cea7fad8190245595b818fa625450ccea486454c3e0f41",
+            "exitCode": 128,
+            "finishedAt": "2026-10-13T03:03:55Z",
+            "message": "failed to create containerd task: failed to create shim task: OCI runtime create failed: runc create failed: unable to start container process: error during container init: exec: \"/usr/bin/claw-entrypoint\": stat /usr/bin/claw-entrypoint: no such file or directory",
+            "reason": "StartError",
+            "startedAt": "1970-01-01T00:00:00Z"
+          }
+        },
+        "name": "runtime",
+        "ready": false,
+        "restartCount": 3,
+        "started": false,
+        "state": {
+          "waiting": {
+            "message": "back-off 40s restarting failed container=runtime pod=agent-0_lifecycle-test(eb613f31-e534-4938-bc6c-384417bbb14c)",
+            "reason": "CrashLoopBackOff"
+          }
+        },
+        "volumeMounts": [
+          {
+            "mountPath": "/var/run/claw",
+            "name": "ipc-socket"
+          },
+          {
+            "mountPath": "/var/lib/claw/wal",
+            "name": "wal-data"
+          },
+          {
+            "mountPath": "/etc/claw",
+            "name": "config-vol",
+            "readOnly": true,
+            "recursiveReadOnly": "Disabled"
+          },
+          {
+            "mountPath": "/tmp",
+            "name": "tmp"
+          }
+        ]
+      }
+    ],
+    "hostIP": "172.19.0.2",
+    "hostIPs": [
+      {
+        "ip": "172.19.0.2"
+      }
+    ],
+    "initContainerStatuses": [
+      {
+        "containerID": "containerd://6abd3415eddcb17e76767c5513a67babba41cd4c1654ac7b978fe7b5bab6a470",
+        "image": "docker.io/library/claw-init-test:diagnostic",
+        "imageID": "sha256:1e7701828d653cd687329feca0435923277571036545d04d6000b1d54dc5045a",
+        "lastState": {},
+        "name": "claw-init",
+        "ready": true,
+        "restartCount": 0,
+        "started": false,
+        "state": {
+          "terminated": {
+            "containerID": "containerd://6abd3415eddcb17e76767c5513a67babba41cd4c1654ac7b978fe7b5bab6a470",
+            "exitCode": 0,
+            "finishedAt": "2026-10-13T03:03:11Z",
+            "reason": "Completed",
+            "startedAt": "2026-10-13T03:03:11Z"
+          }
+        },
+        "volumeMounts": [
+          {
+            "mountPath": "/etc/claw",
+            "name": "config-vol",
+            "readOnly": true,
+            "recursiveReadOnly": "Disabled"
+          },
+          {
+            "mountPath": "/tmp",
+            "name": "tmp"
+          }
+        ]
+      }
+    ],
+    "phase": "Running",
+    "podIP": "10.244.0.12",
+    "podIPs": [
+      {
+        "ip": "10.244.0.12"
+      }
+    ],
+    "qosClass": "Burstable",
+    "startTime": "2026-10-13T03:03:10Z"
+  }
+}

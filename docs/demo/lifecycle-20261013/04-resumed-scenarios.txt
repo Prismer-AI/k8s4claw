@@ -1,0 +1,210 @@
+Resuming after executor disconnect; previous evidence files are preserved.
+$ $TASK/.tools/bin/kubectl --context kind-k8s4claw-lifecycle-20261013 -n lifecycle-test patch claw agent --type=merge -p {"spec": {"autoUpdate": {"enabled": false, "schedule": "0 0 1 1 *", "healthTimeout": "75s", "maxRollbacks": 3}}}
+claw.claw.prismer.ai/agent patched
+$ $TASK/.tools/bin/kubectl --context kind-k8s4claw-lifecycle-20261013 -n lifecycle-test patch claw agent --type=merge -p {"status": {"autoUpdate": {"currentVersion": "0.0.2", "availableVersion": "0.0.3", "lastCheck": "2026-10-13T03:03:10Z"}}} --subresource=status
+claw.claw.prismer.ai/agent patched
+$ $TASK/.tools/bin/kubectl --context kind-k8s4claw-lifecycle-20261013 -n lifecycle-test patch claw agent --type=merge -p {"metadata": {"annotations": {"claw.prismer.ai/target-image": "ghcr.io/prismer-ai/k8s4claw-openclaw:0.0.3", "claw.prismer.ai/update-phase": "HealthCheck", "claw.prismer.ai/update-started": "2026-10-13T03:03:10Z"}}}
+claw.claw.prismer.ai/agent patched
+$ $TASK/.tools/bin/kubectl --context kind-k8s4claw-lifecycle-20261013 -n lifecycle-test patch claw agent --type=merge -p {"spec": {"autoUpdate": {"enabled": true}}}
+claw.claw.prismer.ai/agent patched
+{
+  "label": "08-before-operator-interruption",
+  "sts_generation": 51,
+  "sts_status": {
+    "availableReplicas": 0,
+    "collisionCount": 0,
+    "currentRevision": "agent-68fd5c44d7",
+    "observedGeneration": 51,
+    "replicas": 1,
+    "updateRevision": "agent-5889769c56",
+    "updatedReplicas": 1
+  },
+  "sts_image": "ghcr.io/prismer-ai/k8s4claw-openclaw:0.0.3",
+  "pod_uid": "eb613f31-e534-4938-bc6c-384417bbb14c",
+  "pod_revision": "agent-5889769c56",
+  "pod_images": [
+    "ghcr.io/prismer-ai/k8s4claw-openclaw:0.0.3"
+  ]
+}
+$ $TASK/.tools/bin/kubectl --context kind-k8s4claw-lifecycle-20261013 -n lifecycle-test get pods
+NAME                        READY   STATUS            RESTARTS   AGE
+agent-0                     0/1     PodInitializing   0          2s
+operator-6cd99fcfdd-hgskj   1/1     Running           0          3m44s
+Operator UID before interruption: 402ea2f8-f8dd-4ed5-8560-3effb8f19eb1
+$ $TASK/.tools/bin/kubectl --context kind-k8s4claw-lifecycle-20261013 -n lifecycle-test delete pod operator-6cd99fcfdd-hgskj --grace-period=0 --force --wait=false
+Warning: Immediate deletion does not wait for confirmation that the running resource has been terminated. The resource may continue to run on the cluster indefinitely.
+pod "operator-6cd99fcfdd-hgskj" force deleted
+{
+  "label": "09-after-operator-recovery",
+  "sts_generation": 52,
+  "sts_status": {
+    "availableReplicas": 0,
+    "collisionCount": 0,
+    "currentRevision": "agent-68fd5c44d7",
+    "observedGeneration": 52,
+    "replicas": 1,
+    "updateRevision": "agent-5595b7875b"
+  },
+  "sts_image": "ghcr.io/prismer-ai/k8s4claw-openclaw:latest",
+  "pod_uid": "eb613f31-e534-4938-bc6c-384417bbb14c",
+  "pod_revision": "agent-5889769c56",
+  "pod_images": [
+    "ghcr.io/prismer-ai/k8s4claw-openclaw:0.0.3"
+  ]
+}
+$ $TASK/.tools/bin/kubectl --context kind-k8s4claw-lifecycle-20261013 -n lifecycle-test get pods
+NAME                        READY   STATUS             RESTARTS      AGE
+agent-0                     0/1     CrashLoopBackOff   3 (34s ago)   79s
+operator-6cd99fcfdd-x5xpp   1/1     Running            0             77s
+Operator UID after recovery: 17154812-f2a6-4a23-b473-8848f793bf33
+
+RESULT {"scenario": "operator interruption resumes persisted health check", "status": "FAIL", "detail": "Operator Pod force-deleted during HealthCheck; Deployment recreated it; controller resumed timeout/rollback. This does not fix wrong rollback target."}
+
+$ $TASK/.tools/bin/kubectl --context kind-k8s4claw-lifecycle-20261013 -n lifecycle-test logs deployment/operator --tail=100
+2026-10-13T03:03:13Z	INFO	setup	starting manager	{"webhooks": false}
+2026-10-13T03:03:13Z	INFO	controller-runtime.metrics	Starting metrics server
+2026-10-13T03:03:13Z	INFO	starting server	{"name": "health probe", "addr": "[::]:8081"}
+2026-10-13T03:03:13Z	INFO	controller-runtime.metrics	Serving metrics server	{"bindAddress": ":8080", "secure": false}
+2026-10-13T03:03:13Z	INFO	Starting EventSource	{"controller": "clawchannel", "controllerGroup": "claw.prismer.ai", "controllerKind": "ClawChannel", "source": "kind source: *v1alpha1.ClawChannel"}
+2026-10-13T03:03:13Z	INFO	Starting EventSource	{"controller": "claw", "controllerGroup": "claw.prismer.ai", "controllerKind": "Claw", "source": "kind source: *v1alpha1.ClawChannel"}
+2026-10-13T03:03:13Z	INFO	Starting EventSource	{"controller": "claw", "controllerGroup": "claw.prismer.ai", "controllerKind": "Claw", "source": "kind source: *v1alpha1.Claw"}
+2026-10-13T03:03:13Z	INFO	Starting EventSource	{"controller": "clawops", "source": "kind source: *v1alpha1.ClawOpsEscalation"}
+2026-10-13T03:03:13Z	INFO	Starting EventSource	{"controller": "claw", "controllerGroup": "claw.prismer.ai", "controllerKind": "Claw", "source": "kind source: *v1.StatefulSet"}
+2026-10-13T03:03:13Z	INFO	Starting EventSource	{"controller": "clawops", "source": "kind source: *v1alpha1.Claw"}
+2026-10-13T03:03:13Z	INFO	Starting EventSource	{"controller": "claw", "controllerGroup": "claw.prismer.ai", "controllerKind": "Claw", "source": "kind source: *v1.Service"}
+2026-10-13T03:03:13Z	INFO	Starting EventSource	{"controller": "claw", "controllerGroup": "claw.prismer.ai", "controllerKind": "Claw", "source": "kind source: *v1.PersistentVolumeClaim"}
+2026-10-13T03:03:13Z	INFO	Starting EventSource	{"controller": "claw", "controllerGroup": "claw.prismer.ai", "controllerKind": "Claw", "source": "kind source: *v1.ConfigMap"}
+2026-10-13T03:03:13Z	INFO	Starting EventSource	{"controller": "clawops", "source": "kind source: *v1.Pod"}
+2026-10-13T03:03:13Z	INFO	Starting EventSource	{"controller": "claw", "controllerGroup": "claw.prismer.ai", "controllerKind": "Claw", "source": "kind source: *v1.ServiceAccount"}
+2026-10-13T03:03:13Z	INFO	Starting EventSource	{"controller": "clawselfconfig", "controllerGroup": "claw.prismer.ai", "controllerKind": "ClawSelfConfig", "source": "kind source: *v1alpha1.ClawSelfConfig"}
+2026-10-13T03:03:13Z	INFO	Starting EventSource	{"controller": "claw", "controllerGroup": "claw.prismer.ai", "controllerKind": "Claw", "source": "kind source: *v1.Role"}
+2026-10-13T03:03:13Z	INFO	Starting EventSource	{"controller": "claw", "controllerGroup": "claw.prismer.ai", "controllerKind": "Claw", "source": "kind source: *v1.RoleBinding"}
+2026-10-13T03:03:13Z	INFO	Starting EventSource	{"controller": "claw-autoupdate", "controllerGroup": "claw.prismer.ai", "controllerKind": "Claw", "source": "kind source: *v1alpha1.Claw"}
+2026-10-13T03:03:13Z	INFO	Starting EventSource	{"controller": "claw", "controllerGroup": "claw.prismer.ai", "controllerKind": "Claw", "source": "kind source: *v1.NetworkPolicy"}
+2026-10-13T03:03:13Z	INFO	Starting EventSource	{"controller": "claw", "controllerGroup": "claw.prismer.ai", "controllerKind": "Claw", "source": "kind source: *v1.Ingress"}
+2026-10-13T03:03:13Z	INFO	Starting EventSource	{"controller": "claw", "controllerGroup": "claw.prismer.ai", "controllerKind": "Claw", "source": "kind source: *v1.PodDisruptionBudget"}
+2026-10-13T03:03:13Z	INFO	Starting Controller	{"controller": "claw-autoupdate", "controllerGroup": "claw.prismer.ai", "controllerKind": "Claw"}
+2026-10-13T03:03:13Z	INFO	Starting workers	{"controller": "claw-autoupdate", "controllerGroup": "claw.prismer.ai", "controllerKind": "Claw", "worker count": 1}
+2026-10-13T03:03:13Z	INFO	Starting Controller	{"controller": "clawchannel", "controllerGroup": "claw.prismer.ai", "controllerKind": "ClawChannel"}
+2026-10-13T03:03:13Z	INFO	Starting workers	{"controller": "clawchannel", "controllerGroup": "claw.prismer.ai", "controllerKind": "ClawChannel", "worker count": 1}
+2026-10-13T03:03:13Z	INFO	waiting for health check	{"controller": "claw-autoupdate", "controllerGroup": "claw.prismer.ai", "controllerKind": "Claw", "Claw": {"name":"agent","namespace":"lifecycle-test"}, "namespace": "lifecycle-test", "name": "agent", "reconcileID": "21c2d0aa-ad1c-45ab-a96c-99d20403c7d1", "elapsed": "3.525341945s", "timeout": "1m15s"}
+2026-10-13T03:03:13Z	INFO	Starting Controller	{"controller": "clawselfconfig", "controllerGroup": "claw.prismer.ai", "controllerKind": "ClawSelfConfig"}
+2026-10-13T03:03:13Z	INFO	Starting workers	{"controller": "clawselfconfig", "controllerGroup": "claw.prismer.ai", "controllerKind": "ClawSelfConfig", "worker count": 1}
+2026-10-13T03:03:13Z	INFO	Starting Controller	{"controller": "claw", "controllerGroup": "claw.prismer.ai", "controllerKind": "Claw"}
+2026-10-13T03:03:13Z	INFO	Starting workers	{"controller": "claw", "controllerGroup": "claw.prismer.ai", "controllerKind": "Claw", "worker count": 1}
+2026-10-13T03:03:13Z	INFO	Starting Controller	{"controller": "clawops"}
+2026-10-13T03:03:13Z	INFO	Starting workers	{"controller": "clawops", "worker count": 1}
+2026-10-13T03:03:28Z	INFO	waiting for health check	{"controller": "claw-autoupdate", "controllerGroup": "claw.prismer.ai", "controllerKind": "Claw", "Claw": {"name":"agent","namespace":"lifecycle-test"}, "namespace": "lifecycle-test", "name": "agent", "reconcileID": "4cfee7d7-c943-4938-bca7-3b054c9576f7", "elapsed": "18.527345122s", "timeout": "1m15s"}
+2026-10-13T03:03:43Z	INFO	waiting for health check	{"controller": "claw-autoupdate", "controllerGroup": "claw.prismer.ai", "controllerKind": "Claw", "Claw": {"name":"agent","namespace":"lifecycle-test"}, "namespace": "lifecycle-test", "name": "agent", "reconcileID": "ba189936-465e-4641-bea2-54199e23ff76", "elapsed": "33.529268634s", "timeout": "1m15s"}
+2026-10-13T03:03:58Z	INFO	waiting for health check	{"controller": "claw-autoupdate", "controllerGroup": "claw.prismer.ai", "controllerKind": "Claw", "Claw": {"name":"agent","namespace":"lifecycle-test"}, "namespace": "lifecycle-test", "name": "agent", "reconcileID": "eac2074e-512b-4a3a-b20f-b30f8e5fbd44", "elapsed": "48.53068706s", "timeout": "1m15s"}
+2026-10-13T03:04:13Z	INFO	waiting for health check	{"controller": "claw-autoupdate", "controllerGroup": "claw.prismer.ai", "controllerKind": "Claw", "Claw": {"name":"agent","namespace":"lifecycle-test"}, "namespace": "lifecycle-test", "name": "agent", "reconcileID": "e7b0483a-44a0-40fc-bbfa-10fbf0507583", "elapsed": "1m3.531886543s", "timeout": "1m15s"}
+2026-10-13T03:04:28Z	INFO	health check timeout	{"controller": "claw-autoupdate", "controllerGroup": "claw.prismer.ai", "controllerKind": "Claw", "Claw": {"name":"agent","namespace":"lifecycle-test"}, "namespace": "lifecycle-test", "name": "agent", "reconcileID": "8fa6510c-89e8-4e0e-9476-44a58fd927f6", "elapsed": "1m18.532514283s", "timeout": "1m15s"}
+2026-10-13T03:04:28Z	INFO	rolling back auto-update	{"controller": "claw-autoupdate", "controllerGroup": "claw.prismer.ai", "controllerKind": "Claw", "Claw": {"name":"agent","namespace":"lifecycle-test"}, "namespace": "lifecycle-test", "name": "agent", "reconcileID": "8fa6510c-89e8-4e0e-9476-44a58fd927f6", "failedVersion": "0.0.3", "reason": "health check timed out"}
+2026-10-13T03:04:28Z	DEBUG	events	Rolling back version 0.0.3: health check timed out	{"type": "Warning", "object": {"kind":"Claw","namespace":"lifecycle-test","name":"agent","uid":"919da3b6-d207-4578-ae73-b5270c5bae75","apiVersion":"claw.prismer.ai/v1alpha1","resourceVersion":"1189"}, "reason": "AutoUpdateRollback"}
+2026-10-13T03:04:28Z	ERROR	Reconciler error	{"controller": "claw-autoupdate", "controllerGroup": "claw.prismer.ai", "controllerKind": "Claw", "Claw": {"name":"agent","namespace":"lifecycle-test"}, "namespace": "lifecycle-test", "name": "agent", "reconcileID": "8fa6510c-89e8-4e0e-9476-44a58fd927f6", "error": "failed to update status on rollback: Operation cannot be fulfilled on claws.claw.prismer.ai \"agent\": the object has been modified; please apply your changes to the latest version and try again"}
+sigs.k8s.io/controller-runtime/pkg/internal/controller.(*Controller[...]).reconcileHandler
+	$TASK/.state/go-mod/sigs.k8s.io/controller-runtime@v0.23.1/pkg/internal/controller/controller.go:495
+sigs.k8s.io/controller-runtime/pkg/internal/controller.(*Controller[...]).processNextWorkItem
+	$TASK/.state/go-mod/sigs.k8s.io/controller-runtime@v0.23.1/pkg/internal/controller/controller.go:438
+sigs.k8s.io/controller-runtime/pkg/internal/controller.(*Controller[...]).Start.func1.1
+	$TASK/.state/go-mod/sigs.k8s.io/controller-runtime@v0.23.1/pkg/internal/controller/controller.go:313
+2026-10-13T03:04:28Z	ERROR	Reconciler error	{"controller": "claw", "controllerGroup": "claw.prismer.ai", "controllerKind": "Claw", "Claw": {"name":"agent","namespace":"lifecycle-test"}, "namespace": "lifecycle-test", "name": "agent", "reconcileID": "3bbfd55b-43e4-4f71-8048-0d83462221ac", "error": "failed to ensure StatefulSet: failed to update StatefulSet: Operation cannot be fulfilled on statefulsets.apps \"agent\": the object has been modified; please apply your changes to the latest version and try again"}
+sigs.k8s.io/controller-runtime/pkg/internal/controller.(*Controller[...]).reconcileHandler
+	$TASK/.state/go-mod/sigs.k8s.io/controller-runtime@v0.23.1/pkg/internal/controller/controller.go:495
+sigs.k8s.io/controller-runtime/pkg/internal/controller.(*Controller[...]).processNextWorkItem
+	$TASK/.state/go-mod/sigs.k8s.io/controller-runtime@v0.23.1/pkg/internal/controller/controller.go:438
+sigs.k8s.io/controller-runtime/pkg/internal/controller.(*Controller[...]).Start.func1.1
+	$TASK/.state/go-mod/sigs.k8s.io/controller-runtime@v0.23.1/pkg/internal/controller/controller.go:313
+$ $TASK/.tools/bin/kubectl --context kind-k8s4claw-lifecycle-20261013 -n lifecycle-test get events --sort-by=.metadata.creationTimestamp
+LAST SEEN   TYPE      REASON               OBJECT                           MESSAGE
+5m6s        Normal    Scheduled            pod/operator-5dcf586fc-rw7jt     Successfully assigned lifecycle-test/operator-5dcf586fc-rw7jt to k8s4claw-lifecycle-20261013-control-plane
+5m6s        Normal    SuccessfulCreate     replicaset/operator-5dcf586fc    Created pod: operator-5dcf586fc-rw7jt
+5m6s        Normal    ScalingReplicaSet    deployment/operator              Scaled up replica set operator-5dcf586fc from 0 to 1
+5m6s        Normal    Created              pod/operator-5dcf586fc-rw7jt     Created container: operator
+5m6s        Normal    Pulled               pod/operator-5dcf586fc-rw7jt     Container image "claw-operator-test:stock" already present on machine
+5m5s        Normal    Started              pod/operator-5dcf586fc-rw7jt     Started container operator
+5m3s        Normal    ClawProvisioning     claw/agent                       Instance entering provisioning
+79s         Normal    SuccessfulCreate     statefulset/agent                create Pod agent-0 in StatefulSet agent successful
+5m3s        Normal    Scheduled            pod/agent-0                      Successfully assigned lifecycle-test/agent-0 to k8s4claw-lifecycle-20261013-control-plane
+79s         Normal    NoPods               poddisruptionbudget/agent        No matching pods found
+5m2s        Normal    Started              pod/agent-0                      Started container claw-init
+5m2s        Normal    Created              pod/agent-0                      Created container: claw-init
+5m2s        Normal    Pulled               pod/agent-0                      Container image "claw-init-test:stock" already present on machine
+5m1s        Normal    SuccessfulCreate     replicaset/operator-6cd99fcfdd   Created pod: operator-6cd99fcfdd-hgskj
+5m1s        Normal    Scheduled            pod/operator-6cd99fcfdd-hgskj    Successfully assigned lifecycle-test/operator-6cd99fcfdd-hgskj to k8s4claw-lifecycle-20261013-control-plane
+5m1s        Normal    ScalingReplicaSet    deployment/operator              Scaled up replica set operator-6cd99fcfdd from 0 to 1
+5m1s        Warning   BackOff              pod/agent-0                      Back-off restarting failed container claw-init in pod agent-0_lifecycle-test(a04bf55a-f63e-4256-a4ef-b8d811589151)
+5m          Normal    Started              pod/operator-6cd99fcfdd-hgskj    Started container operator
+5m          Normal    Created              pod/operator-6cd99fcfdd-hgskj    Created container: operator
+5m          Normal    Pulled               pod/operator-6cd99fcfdd-hgskj    Container image "claw-operator-test:diagnostic" already present on machine
+4m59s       Normal    ScalingReplicaSet    deployment/operator              Scaled down replica set operator-5dcf586fc from 1 to 0
+4m59s       Normal    Killing              pod/operator-5dcf586fc-rw7jt     Stopping container operator
+4m59s       Normal    SuccessfulDelete     replicaset/operator-5dcf586fc    Deleted pod: operator-5dcf586fc-rw7jt
+4m58s       Normal    Created              pod/agent-0                      Created container: claw-init
+4m58s       Normal    Started              pod/agent-0                      Started container claw-init
+4m58s       Normal    Pulled               pod/agent-0                      Container image "claw-init-test:diagnostic" already present on machine
+4m58s       Normal    Scheduled            pod/agent-0                      Successfully assigned lifecycle-test/agent-0 to k8s4claw-lifecycle-20261013-control-plane
+4m57s       Normal    Started              pod/agent-0                      Started container runtime
+4m57s       Normal    Created              pod/agent-0                      Created container: runtime
+4m57s       Normal    Pulled               pod/agent-0                      Container image "ghcr.io/prismer-ai/k8s4claw-openclaw:0.0.1" already present on machine
+3m24s       Normal    ClawRunning          claw/agent                       Instance reached running state
+4m43s       Normal    Killing              pod/agent-0                      Stopping container runtime
+78s         Normal    ClawProvisioning     claw/agent                       Instance entering provisioning
+79s         Normal    SuccessfulDelete     statefulset/agent                delete Pod agent-0 in StatefulSet agent successful
+4m43s       Warning   FailedPreStopHook    pod/agent-0                      PreStopHook failed
+4m42s       Normal    Scheduled            pod/agent-0                      Successfully assigned lifecycle-test/agent-0 to k8s4claw-lifecycle-20261013-control-plane
+4m41s       Normal    Created              pod/agent-0                      Created container: runtime
+4m41s       Normal    Pulled               pod/agent-0                      Container image "claw-init-test:diagnostic" already present on machine
+4m41s       Normal    Pulled               pod/agent-0                      Container image "ghcr.io/prismer-ai/k8s4claw-openclaw:0.0.2" already present on machine
+4m41s       Normal    Started              pod/agent-0                      Started container claw-init
+4m41s       Normal    Created              pod/agent-0                      Created container: claw-init
+4m40s       Normal    Started              pod/agent-0                      Started container runtime
+4m27s       Normal    Killing              pod/agent-0                      Stopping container runtime
+4m27s       Warning   FailedPreStopHook    pod/agent-0                      PreStopHook failed
+4m26s       Normal    Scheduled            pod/agent-0                      Successfully assigned lifecycle-test/agent-0 to k8s4claw-lifecycle-20261013-control-plane
+4m26s       Normal    Started              pod/agent-0                      Started container claw-init
+4m26s       Normal    Created              pod/agent-0                      Created container: claw-init
+4m26s       Normal    Pulled               pod/agent-0                      Container image "claw-init-test:diagnostic" already present on machine
+3m42s       Normal    Pulled               pod/agent-0                      Container image "ghcr.io/prismer-ai/k8s4claw-openclaw:0.0.3" already present on machine
+3m42s       Normal    Created              pod/agent-0                      Created container: runtime
+3m42s       Warning   Failed               pod/agent-0                      Error: failed to create containerd task: failed to create shim task: OCI runtime create failed: runc create failed: unable to start container process: error during container init: exec: "/usr/bin/claw-entrypoint": stat /usr/bin/claw-entrypoint: no such file or directory
+3m41s       Warning   BackOff              pod/agent-0                      Back-off restarting failed container runtime in pod agent-0_lifecycle-test(38ee88a9-b024-44f0-b8c8-fc26bf0676bb)
+3m40s       Warning   AutoUpdateRollback   claw/agent                       Rolling back version 0.0.3: health check timed out
+3m38s       Normal    Scheduled            pod/agent-0                      Successfully assigned lifecycle-test/agent-0 to k8s4claw-lifecycle-20261013-control-plane
+3m37s       Normal    Created              pod/agent-0                      Created container: claw-init
+3m37s       Normal    Pulled               pod/agent-0                      Container image "claw-init-test:diagnostic" already present on machine
+3m37s       Normal    Started              pod/agent-0                      Started container runtime
+3m37s       Normal    Started              pod/agent-0                      Started container claw-init
+3m37s       Normal    Pulled               pod/agent-0                      Container image "ghcr.io/prismer-ai/k8s4claw-openclaw:0.0.2" already present on machine
+3m37s       Normal    Created              pod/agent-0                      Created container: runtime
+79s         Normal    Scheduled            pod/agent-0                      Successfully assigned lifecycle-test/agent-0 to k8s4claw-lifecycle-20261013-control-plane
+79s         Warning   FailedPreStopHook    pod/agent-0                      PreStopHook failed
+79s         Normal    Killing              pod/agent-0                      Stopping container runtime
+34s         Normal    Pulled               pod/agent-0                      Container image "ghcr.io/prismer-ai/k8s4claw-openclaw:0.0.3" already present on machine
+78s         Normal    Started              pod/agent-0                      Started container claw-init
+78s         Normal    Created              pod/agent-0                      Created container: claw-init
+78s         Normal    Pulled               pod/agent-0                      Container image "claw-init-test:diagnostic" already present on machine
+77s         Normal    Killing              pod/operator-6cd99fcfdd-hgskj    Stopping container operator
+77s         Normal    Scheduled            pod/operator-6cd99fcfdd-x5xpp    Successfully assigned lifecycle-test/operator-6cd99fcfdd-x5xpp to k8s4claw-lifecycle-20261013-control-plane
+77s         Normal    SuccessfulCreate     replicaset/operator-6cd99fcfdd   Created pod: operator-6cd99fcfdd-x5xpp
+34s         Warning   Failed               pod/agent-0                      Error: failed to create containerd task: failed to create shim task: OCI runtime create failed: runc create failed: unable to start container process: error during container init: exec: "/usr/bin/claw-entrypoint": stat /usr/bin/claw-entrypoint: no such file or directory
+34s         Normal    Created              pod/agent-0                      Created container: runtime
+76s         Normal    Pulled               pod/operator-6cd99fcfdd-x5xpp    Container image "claw-operator-test:diagnostic" already present on machine
+76s         Normal    Created              pod/operator-6cd99fcfdd-x5xpp    Created container: operator
+76s         Normal    Started              pod/operator-6cd99fcfdd-x5xpp    Started container operator
+2s          Warning   BackOff              pod/agent-0                      Back-off restarting failed container runtime in pod agent-0_lifecycle-test(eb613f31-e534-4938-bc6c-384417bbb14c)
+1s          Warning   AutoUpdateRollback   claw/agent                       Rolling back version 0.0.3: health check timed out
+$ $TASK/.tools/bin/kubectl --context kind-k8s4claw-lifecycle-20261013 -n lifecycle-test apply -f -
+pod/ipc-contract created
+$ $TASK/.tools/bin/kubectl --context kind-k8s4claw-lifecycle-20261013 -n lifecycle-test logs ipc-contract
+{"level":"info","ts":1791860669.859941,"caller":"ipcbus/main.go:57","msg":"starting IPC Bus","socketPath":"/var/run/claw","walDir":"/var/run/claw/wal","runtime":"openclaw","gatewayPort":18900,"bufferSize":1024}
+{"level":"error","ts":1791860669.8638933,"caller":"ipcbus/main.go:115","msg":"bridge connect failed (runtime may not be ready yet)","error":"failed to dial websocket ws://localhost:18900: failed to WebSocket dial: failed to send handshake request: Get \"http://localhost:18900\": dial tcp [::1]:18900: connect: connection refused","stacktrace":"main.runServe\n\t$TASK/k8s4claw/cmd/ipcbus/main.go:115\nmain.main\n\t$TASK/k8s4claw/cmd/ipcbus/main.go:32\nruntime.main\n\t$TASK/.tools/go/src/runtime/proc.go:285"}
+{"level":"info","ts":1791860669.8639667,"logger":"router","caller":"ipcbus/router.go:225","msg":"replaying WAL","pendingCount":0}
+{"level":"info","ts":1791860669.8639796,"caller":"ipcbus/main.go:131","msg":"starting UDS server"}
+fatal: failed to remove stale socket: remove /var/run/claw: read-only file system
+
+RESULT {"scenario": "stock IPC socket contract (standalone probe)", "status": "FAIL", "detail": "{\"level\":\"info\",\"ts\":1791860669.859941,\"caller\":\"ipcbus/main.go:57\",\"msg\":\"starting IPC Bus\",\"socketPath\":\"/var/run/claw\",\"walDir\":\"/var/run/claw/wal\",\"runtime\":\"openclaw\",\"gatewayPort\":18900,\"bufferSize\":1024}\n{\"level\":\"error\",\"ts\":1791860669.8638933,\"caller\":\"ipcbus/main.go:115\",\"msg\":\"bridge connect failed (runtime may not be ready yet)\",\"error\":\"failed to dial websocket ws://localhost:18900: failed to WebSocket dial: failed to send handshake request: Get \\\"http://localhost:18900\\\": dial tcp [::1]:18900: connect: connection refused\",\"stacktrace\":\"main.runServe\\n\\t$TASK/k8s4claw/cmd/ipcbus/main.go:115\\nmain.main\\n\\t$TASK/k8s4claw/cmd/ipcbus/main.go:32\\nruntime.main\\n\\t$TASK/.tools/go/src/runtime/proc.go:285\"}\n{\"level\":\"info\",\"ts\":1791860669.8639667,\"logger\":\"router\",\"caller\":\"ipcbus/router.go:225\",\"msg\":\"replaying WAL\",\"pendingCount\":0}\n{\"level\":\"info\",\"ts\":1791860669.8639796,\"caller\":\"ipcbus/main.go:131\",\"msg\":\"starting UDS server\"}\nfatal: failed to remove stale socket: remove /var/run/claw: read-only file system"}
+
+All characterization scenarios complete. Cluster retained until evidence review/explicit cleanup.
+
+[recorder] child exit code: 0

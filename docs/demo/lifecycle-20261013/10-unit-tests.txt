@@ -1,0 +1,6 @@
+ok  	github.com/Prismer-AI/k8s4claw/internal/runtime	(cached)
+ok  	github.com/Prismer-AI/k8s4claw/internal/ipcbus	4.565s
+ok  	github.com/Prismer-AI/k8s4claw/internal/registry	(cached)
+ok  	github.com/Prismer-AI/k8s4claw/internal/controller/autoupdate	(cached)
+
+[recorder] child exit code: 0

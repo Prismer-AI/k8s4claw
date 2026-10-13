@@ -1,0 +1,4 @@
+Verified against official release checksum metadata before cluster creation:
+9528be7329b9770631a6bd09ca2f3a73ed7332bec01d87435e75e92d8f130363  go1.25.9.darwin-arm64.tar.gz
+5240ca1acb587e1d0386532dd8c3373d81f5173b5af322919fc56f0cdd646596  kind-darwin-arm64-v0.27.0
+31b6318deaa72014b72121e1c7a2e12496d077cee49bbeda94250aec4c978ffb  kubectl-darwin-arm64-v1.32.2

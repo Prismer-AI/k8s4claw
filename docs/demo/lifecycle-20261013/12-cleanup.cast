@@ -1,0 +1,4 @@
+{"version": 2, "width": 120, "height": 36, "timestamp": 1791860948, "title": "k8s4claw real isolated-kind test terminal", "env": {"TERM": "dumb"}}
+[0.08595, "o", "Deleting cluster \"k8s4claw-lifecycle-20261013\" ...\r\n"]
+[1.806942, "o", "Deleted nodes: [\"k8s4claw-lifecycle-20261013-control-plane\"]\r\n"]
+[1.808147, "o", "\r\n[recorder] child exit code: 0\r\n"]

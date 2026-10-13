@@ -341,6 +341,8 @@ make docker-build   # Build container image
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for the full development guide.
 
+For a recorded characterization of real startup, image rollout, failed-version rollback and operator interruption, see the [2026-10-13 isolated-kind evidence report](docs/demo/lifecycle-20261013/README.md). It includes terminal videos, reproduction scripts and known failures; diagnostic results are distinguished from the stock startup path.
+
 ## Design Documents
 
 - [Operator Core Design](docs/plans/2026-03-04-k8s4claw-design.md)

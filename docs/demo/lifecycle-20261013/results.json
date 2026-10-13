@@ -1,0 +1,32 @@
+[
+  {
+    "scenario": "stock real runtime startup",
+    "status": "FAIL",
+    "detail": "claw-init: starting\nfailed to create directory /data/config: mkdir /data: read-only file system"
+  },
+  {
+    "scenario": "diagnostic real runtime startup",
+    "status": "PASS",
+    "detail": "Real OpenClaw process; init environment workaround; invalid placeholder key, no inference requests."
+  },
+  {
+    "scenario": "diagnostic normal image rollout",
+    "status": "PASS",
+    "detail": "0.0.1 -> 0.0.2, same real-source binary under two tags; new Pod UID and converged revisions required. OCI discovery not tested."
+  },
+  {
+    "scenario": "bad version returns to previous-good 0.0.2",
+    "status": "FAIL",
+    "detail": "After real failed container start, rollback StatefulSet target = ghcr.io/prismer-ai/k8s4claw-openclaw:latest; expected exact previous-good :0.0.2."
+  },
+  {
+    "scenario": "operator interruption resumes persisted health check",
+    "status": "FAIL",
+    "detail": "Operator Pod force-deleted during HealthCheck; Deployment recreated it; controller resumed timeout/rollback. This does not fix wrong rollback target."
+  },
+  {
+    "scenario": "stock IPC socket contract (standalone probe)",
+    "status": "FAIL",
+    "detail": "{\"level\":\"info\",\"ts\":1791860669.859941,\"caller\":\"ipcbus/main.go:57\",\"msg\":\"starting IPC Bus\",\"socketPath\":\"/var/run/claw\",\"walDir\":\"/var/run/claw/wal\",\"runtime\":\"openclaw\",\"gatewayPort\":18900,\"bufferSize\":1024}\n{\"level\":\"error\",\"ts\":1791860669.8638933,\"caller\":\"ipcbus/main.go:115\",\"msg\":\"bridge connect failed (runtime may not be ready yet)\",\"error\":\"failed to dial websocket ws://localhost:18900: failed to WebSocket dial: failed to send handshake request: Get \\\"http://localhost:18900\\\": dial tcp [::1]:18900: connect: connection refused\",\"stacktrace\":\"main.runServe\\n\\t$TASK/k8s4claw/cmd/ipcbus/main.go:115\\nmain.main\\n\\t$TASK/k8s4claw/cmd/ipcbus/main.go:32\\nruntime.main\\n\\t$TASK/.tools/go/src/runtime/proc.go:285\"}\n{\"level\":\"info\",\"ts\":1791860669.8639667,\"logger\":\"router\",\"caller\":\"ipcbus/router.go:225\",\"msg\":\"replaying WAL\",\"pendingCount\":0}\n{\"level\":\"info\",\"ts\":1791860669.8639796,\"caller\":\"ipcbus/main.go:131\",\"msg\":\"starting UDS server\"}\nfatal: failed to remove stale socket: remove /var/run/claw: read-only file system"
+  }
+]

@@ -1,0 +1,20 @@
+[
+  {
+    "file": "03-scenarios.mp4",
+    "frames": 53,
+    "width": 1440,
+    "height": 960,
+    "codec": "h264",
+    "seconds": 26.5,
+    "all_frames_decoded": true
+  },
+  {
+    "file": "04-resumed-scenarios.mp4",
+    "frames": 47,
+    "width": 1440,
+    "height": 960,
+    "codec": "h264",
+    "seconds": 23.5,
+    "all_frames_decoded": true
+  }
+]
