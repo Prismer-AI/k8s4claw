@@ -1,0 +1,4 @@
+Deleting cluster "k8s4claw-lifecycle-20261013" ...
+Deleted nodes: ["k8s4claw-lifecycle-20261013-control-plane"]
+
+[recorder] child exit code: 0

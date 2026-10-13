@@ -1,0 +1,15 @@
+Actual isolated-kind setup; no existing Kubernetes configuration is used.
+Tue Oct 13 02:51:49 UTC 2026
+513849e404e2d494e892850462b519af44fc2424
+kind v0.27.0 go1.23.6 darwin/arm64
+Client Version: v1.32.2
+Kustomize Version: v5.5.0
+Docker 29.5.2 aarch64 CPU=4 RAM=6197448704
+Creating cluster "k8s4claw-lifecycle-20261013" ...
+ • Ensuring node image (kindest/node:v1.32.2) 🖼  ...
+ ✗ Ensuring node image (kindest/node:v1.32.2) 🖼
+ERROR: failed to create cluster: failed to pull image "kindest/node:v1.32.2": command "docker pull kindest/node:v1.32.2" failed with error: exit status 1
+
+Command Output: Error response from daemon: unknown: failed to copy: httpReadSeeker: failed open: unexpected status from GET request to https://docker.m.daocloud.io/v2/kindest/node/manifests/sha256:142f543559cc55d64e1ab9341df08e5ced84bd2e893736da8f51320f26f5950b?ns=docker.io: 502 Bad Gateway
+
+[recorder] child exit code: 1

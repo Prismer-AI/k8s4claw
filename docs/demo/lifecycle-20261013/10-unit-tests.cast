@@ -1,0 +1,5 @@
+{"version": 2, "width": 120, "height": 36, "timestamp": 1791860303, "title": "k8s4claw real isolated-kind test terminal", "env": {"TERM": "dumb"}}
+[0.648842, "o", "ok  \tgithub.com/Prismer-AI/k8s4claw/internal/runtime\t(cached)\r\n"]
+[7.352357, "o", "ok  \tgithub.com/Prismer-AI/k8s4claw/internal/ipcbus\t4.565s\r\n"]
+[7.352833, "o", "ok  \tgithub.com/Prismer-AI/k8s4claw/internal/registry\t(cached)\r\nok  \tgithub.com/Prismer-AI/k8s4claw/internal/controller/autoupdate\t(cached)\r\n"]
+[7.395899, "o", "\r\n[recorder] child exit code: 0\r\n"]
