@@ -1,0 +1,159 @@
+REAL FIXED SOURCE KIND TEST; no init environment workaround; no paid inference.
+$ git rev-parse HEAD
+48274b25a228503dcdc2cab08fe2be2be669588e
+$ $TASK/.tools/bin/kind load docker-image --name k8s4claw-fixed-20261013 claw-operator-fixed:test claw-init-fixed:test claw-ipcbus-fixed:test claw-channel-probe:test ghcr.io/prismer-ai/k8s4claw-openclaw:0.0.1 ghcr.io/prismer-ai/k8s4claw-openclaw:0.0.2 ghcr.io/prismer-ai/k8s4claw-openclaw:0.0.3 ghcr.io/prismer-ai/k8s4claw-openclaw:latest
+Image: "claw-operator-fixed:test" with ID "sha256:dbcf85d228c739ef1c407adaa1abc1716f34bd18cabcd5dcd20d36bea348c6ea" not yet present on node "k8s4claw-fixed-20261013-control-plane", loading...
+Image: "claw-init-fixed:test" with ID "sha256:974745afed27aa782cba199a6d3c57e9ee4e1ae016c85c11e8b9bdcb2e1b7fba" not yet present on node "k8s4claw-fixed-20261013-control-plane", loading...
+Image: "claw-ipcbus-fixed:test" with ID "sha256:47fed1cc5ee83cd4174f4d8864c0afaeb61c5307768b9708fdfd0fe799fb2805" not yet present on node "k8s4claw-fixed-20261013-control-plane", loading...
+Image: "claw-channel-probe:test" with ID "sha256:27dbb4bafcb200d7390d8f802eeb623ccc681b1af793a8fd47c31a215da32888" not yet present on node "k8s4claw-fixed-20261013-control-plane", loading...
+Image: "ghcr.io/prismer-ai/k8s4claw-openclaw:0.0.1" with ID "sha256:2547afd38ec77b5130789968b69eebc3adc7895f71ed71721aab5003364a2019" not yet present on node "k8s4claw-fixed-20261013-control-plane", loading...
+Image: "ghcr.io/prismer-ai/k8s4claw-openclaw:0.0.2" with ID "sha256:2547afd38ec77b5130789968b69eebc3adc7895f71ed71721aab5003364a2019" not yet present on node "k8s4claw-fixed-20261013-control-plane", loading...
+Image: "ghcr.io/prismer-ai/k8s4claw-openclaw:0.0.3" with ID "sha256:2ac37180b5c073694b449d349d0df859d4e44765cbc0b051a3c246f432d03a32" not yet present on node "k8s4claw-fixed-20261013-control-plane", loading...
+Image: "ghcr.io/prismer-ai/k8s4claw-openclaw:latest" with ID "sha256:2547afd38ec77b5130789968b69eebc3adc7895f71ed71721aab5003364a2019" not yet present on node "k8s4claw-fixed-20261013-control-plane", loading...
+$ $TASK/.tools/bin/kubectl --context kind-k8s4claw-fixed-20261013 -n lifecycle-test delete namespace lifecycle-test --ignore-not-found --timeout=60s
+Warning: deleting cluster-scoped resources, not scoped to the provided namespace
+namespace "lifecycle-test" deleted
+$ $TASK/.tools/bin/kubectl --context kind-k8s4claw-fixed-20261013 -n lifecycle-test create namespace lifecycle-test
+namespace/lifecycle-test created
+$ $TASK/.tools/bin/kubectl --context kind-k8s4claw-fixed-20261013 apply -f $TASK/k8s4claw/config/crd/bases
+customresourcedefinition.apiextensions.k8s.io/clawchannels.claw.prismer.ai unchanged
+customresourcedefinition.apiextensions.k8s.io/clawopsescalations.claw.prismer.ai unchanged
+customresourcedefinition.apiextensions.k8s.io/claws.claw.prismer.ai unchanged
+customresourcedefinition.apiextensions.k8s.io/clawselfconfigs.claw.prismer.ai unchanged
+$ $TASK/.tools/bin/kubectl --context kind-k8s4claw-fixed-20261013 -n lifecycle-test wait --for=condition=Established crd/claws.claw.prismer.ai --timeout=30s
+customresourcedefinition.apiextensions.k8s.io/claws.claw.prismer.ai condition met
+$ $TASK/.tools/bin/kubectl --context kind-k8s4claw-fixed-20261013 -n lifecycle-test apply -f -
+serviceaccount/operator created
+$ $TASK/.tools/bin/kubectl --context kind-k8s4claw-fixed-20261013 apply -f $TASK/k8s4claw/config/rbac/role.yaml
+clusterrole.rbac.authorization.k8s.io/k8s4claw-operator unchanged
+$ $TASK/.tools/bin/kubectl --context kind-k8s4claw-fixed-20261013 -n lifecycle-test apply -f -
+clusterrolebinding.rbac.authorization.k8s.io/fixed-test-operator unchanged
+$ $TASK/.tools/bin/kubectl --context kind-k8s4claw-fixed-20261013 apply -f $TASK/k8s4claw/config/rbac/clawops_role.yaml
+clusterrole.rbac.authorization.k8s.io/k8s4claw-clawops created
+$ $TASK/.tools/bin/kubectl --context kind-k8s4claw-fixed-20261013 -n lifecycle-test apply -f -
+clusterrolebinding.rbac.authorization.k8s.io/fixed-test-clawops created
+$ $TASK/.tools/bin/kubectl --context kind-k8s4claw-fixed-20261013 -n lifecycle-test apply -f -
+deployment.apps/operator created
+$ $TASK/.tools/bin/kubectl --context kind-k8s4claw-fixed-20261013 -n lifecycle-test rollout status deployment/operator --timeout=90s
+Waiting for deployment "operator" rollout to finish: 0 of 1 updated replicas are available...
+deployment "operator" successfully rolled out
+$ $TASK/.tools/bin/kubectl --context kind-k8s4claw-fixed-20261013 -n lifecycle-test apply -f -
+secret/test-only created
+$ $TASK/.tools/bin/kubectl --context kind-k8s4claw-fixed-20261013 -n lifecycle-test apply -f -
+clawchannel.claw.prismer.ai/probe created
+$ $TASK/.tools/bin/kubectl --context kind-k8s4claw-fixed-20261013 -n lifecycle-test apply -f -
+claw.claw.prismer.ai/agent created
+Error from server (NotFound): statefulsets.apps "agent" not found
+{
+  "label": "03-startup",
+  "sts_generation": 1,
+  "sts_status": {
+    "availableReplicas": 0,
+    "collisionCount": 0,
+    "currentReplicas": 1,
+    "currentRevision": "agent-78dcc945f8",
+    "observedGeneration": 1,
+    "replicas": 1,
+    "updateRevision": "agent-78dcc945f8",
+    "updatedReplicas": 1
+  },
+  "sts_image": "ghcr.io/prismer-ai/k8s4claw-openclaw:0.0.1",
+  "pod_uid": "ad586756-faa3-4f57-897c-9d6bc4247078",
+  "pod_revision": "agent-78dcc945f8",
+  "pod_images": [
+    "ghcr.io/prismer-ai/k8s4claw-openclaw:0.0.1"
+  ]
+}
+$ $TASK/.tools/bin/kubectl --context kind-k8s4claw-fixed-20261013 -n lifecycle-test get pods
+NAME                       READY   STATUS                  RESTARTS      AGE
+agent-0                    0/3     Init:CrashLoopBackOff   4 (72s ago)   2m31s
+operator-cc75979cc-6d2n4   1/1     Running                 0             2m33s
+$ $TASK/.tools/bin/kubectl --context kind-k8s4claw-fixed-20261013 -n lifecycle-test logs agent-0 -c claw-init
+claw-init: starting
+claw-init: ensured directory /etc/claw
+claw-init: ensured directory /workspace
+claw-init: wrote config to /etc/claw/config.json (148 bytes)
+claw-init: done
+$ $TASK/.tools/bin/kubectl --context kind-k8s4claw-fixed-20261013 -n lifecycle-test logs agent-0 -c runtime
+Error from server (BadRequest): container "runtime" in pod "agent-0" is waiting to start: PodInitializing
+$ $TASK/.tools/bin/kubectl --context kind-k8s4claw-fixed-20261013 -n lifecycle-test logs agent-0 -c ipc-bus
+{"level":"info","ts":1791871993.3108435,"caller":"ipcbus/main.go:57","msg":"starting IPC Bus","socketPath":"/var/run/claw/bus.sock","walDir":"/var/run/claw/wal","runtime":"openclaw","gatewayPort":18900,"bufferSize":1024}
+{"level":"error","ts":1791871993.312494,"caller":"ipcbus/main.go:115","msg":"bridge connect failed (runtime may not be ready yet)","error":"failed to dial websocket ws://localhost:18900: failed to WebSocket dial: failed to send handshake request: Get \"http://localhost:18900\": dial tcp [::1]:18900: connect: connection refused","stacktrace":"main.runServe\n\t$TASK/k8s4claw/cmd/ipcbus/main.go:115\nmain.main\n\t$TASK/k8s4claw/cmd/ipcbus/main.go:32\nruntime.main\n\t$TASK/.tools/go/src/runtime/proc.go:285"}
+{"level":"info","ts":1791871993.312539,"logger":"router","caller":"ipcbus/router.go:225","msg":"replaying WAL","pendingCount":0}
+{"level":"info","ts":1791871993.3125496,"caller":"ipcbus/main.go:131","msg":"starting UDS server"}
+panic: runtime error: invalid memory address or nil pointer dereference
+[signal SIGSEGV: segmentation violation code=0x1 addr=0x58 pc=0x278b60]
+
+goroutine 34 [running]:
+github.com/coder/websocket.(*Conn).reader(0x0, {0x54b730, 0x40000c6370})
+	$TASK/.state/go-mod/github.com/coder/websocket@v1.8.14/read.go:371 +0x60
+github.com/coder/websocket.(*Conn).Reader(...)
+	$TASK/.state/go-mod/github.com/coder/websocket@v1.8.14/read.go:36
+github.com/coder/websocket.(*Conn).Read(0x0?, {0x54b730?, 0x40000c6370?})
+	$TASK/.state/go-mod/github.com/coder/websocket@v1.8.14/read.go:42 +0x28
+github.com/Prismer-AI/k8s4claw/internal/ipcbus.(*WebSocketBridge).Receive.func1()
+	$TASK/k8s4claw/internal/ipcbus/bridge_ws.go:60 +0x70
+created by github.com/Prismer-AI/k8s4claw/internal/ipcbus.(*WebSocketBridge).Receive in goroutine 28
+	$TASK/k8s4claw/internal/ipcbus/bridge_ws.go:57 +0x94
+
+RESULT {"scenario": "real runtime startup", "status": "FAIL", "detail": "Unmodified real-source gateway binary in scratch test image, no init ENV workaround, placeholder credentials and no inference."}
+
+
+RESULT {"scenario": "harness completion", "status": "FAIL", "detail": ""}
+
+$ $TASK/.tools/bin/kubectl --context kind-k8s4claw-fixed-20261013 -n lifecycle-test get pods -o wide
+NAME                       READY   STATUS                  RESTARTS      AGE     IP           NODE                                    NOMINATED NODE   READINESS GATES
+agent-0                    0/3     Init:CrashLoopBackOff   4 (73s ago)   2m32s   10.244.0.7   k8s4claw-fixed-20261013-control-plane   <none>           <none>
+operator-cc75979cc-6d2n4   1/1     Running                 0             2m34s   10.244.0.6   k8s4claw-fixed-20261013-control-plane   <none>           <none>
+$ $TASK/.tools/bin/kubectl --context kind-k8s4claw-fixed-20261013 -n lifecycle-test logs deployment/operator --tail=50
+2026-10-13T06:11:53Z	INFO	setup	starting manager	{"webhooks": false}
+2026-10-13T06:11:53Z	INFO	controller-runtime.metrics	Starting metrics server
+2026-10-13T06:11:53Z	INFO	starting server	{"name": "health probe", "addr": "[::]:8081"}
+2026-10-13T06:11:53Z	INFO	controller-runtime.metrics	Serving metrics server	{"bindAddress": ":8080", "secure": false}
+2026-10-13T06:11:53Z	INFO	Starting EventSource	{"controller": "claw", "controllerGroup": "claw.prismer.ai", "controllerKind": "Claw", "source": "kind source: *v1.StatefulSet"}
+2026-10-13T06:11:53Z	INFO	Starting EventSource	{"controller": "claw", "controllerGroup": "claw.prismer.ai", "controllerKind": "Claw", "source": "kind source: *v1.ConfigMap"}
+2026-10-13T06:11:53Z	INFO	Starting EventSource	{"controller": "claw-autoupdate", "controllerGroup": "claw.prismer.ai", "controllerKind": "Claw", "source": "kind source: *v1alpha1.Claw"}
+2026-10-13T06:11:53Z	INFO	Starting EventSource	{"controller": "claw", "controllerGroup": "claw.prismer.ai", "controllerKind": "Claw", "source": "kind source: *v1.Role"}
+2026-10-13T06:11:53Z	INFO	Starting EventSource	{"controller": "claw", "controllerGroup": "claw.prismer.ai", "controllerKind": "Claw", "source": "kind source: *v1.RoleBinding"}
+2026-10-13T06:11:53Z	INFO	Starting EventSource	{"controller": "claw", "controllerGroup": "claw.prismer.ai", "controllerKind": "Claw", "source": "kind source: *v1.Service"}
+2026-10-13T06:11:53Z	INFO	Starting EventSource	{"controller": "claw", "controllerGroup": "claw.prismer.ai", "controllerKind": "Claw", "source": "kind source: *v1alpha1.ClawChannel"}
+2026-10-13T06:11:53Z	INFO	Starting EventSource	{"controller": "claw", "controllerGroup": "claw.prismer.ai", "controllerKind": "Claw", "source": "kind source: *v1.Ingress"}
+2026-10-13T06:11:53Z	INFO	Starting EventSource	{"controller": "claw", "controllerGroup": "claw.prismer.ai", "controllerKind": "Claw", "source": "kind source: *v1.ServiceAccount"}
+2026-10-13T06:11:53Z	INFO	Starting EventSource	{"controller": "claw", "controllerGroup": "claw.prismer.ai", "controllerKind": "Claw", "source": "kind source: *v1.PodDisruptionBudget"}
+2026-10-13T06:11:53Z	INFO	Starting EventSource	{"controller": "claw", "controllerGroup": "claw.prismer.ai", "controllerKind": "Claw", "source": "kind source: *v1.NetworkPolicy"}
+2026-10-13T06:11:53Z	INFO	Starting EventSource	{"controller": "clawselfconfig", "controllerGroup": "claw.prismer.ai", "controllerKind": "ClawSelfConfig", "source": "kind source: *v1alpha1.ClawSelfConfig"}
+2026-10-13T06:11:53Z	INFO	Starting EventSource	{"controller": "clawops", "source": "kind source: *v1alpha1.ClawOpsEscalation"}
+2026-10-13T06:11:53Z	INFO	Starting EventSource	{"controller": "claw", "controllerGroup": "claw.prismer.ai", "controllerKind": "Claw", "source": "kind source: *v1alpha1.Claw"}
+2026-10-13T06:11:53Z	INFO	Starting EventSource	{"controller": "claw", "controllerGroup": "claw.prismer.ai", "controllerKind": "Claw", "source": "kind source: *v1.PersistentVolumeClaim"}
+2026-10-13T06:11:53Z	INFO	Starting EventSource	{"controller": "clawops", "source": "kind source: *v1alpha1.Claw"}
+2026-10-13T06:11:53Z	INFO	Starting EventSource	{"controller": "clawops", "source": "kind source: *v1.Pod"}
+2026-10-13T06:11:53Z	INFO	Starting EventSource	{"controller": "clawchannel", "controllerGroup": "claw.prismer.ai", "controllerKind": "ClawChannel", "source": "kind source: *v1alpha1.ClawChannel"}
+2026-10-13T06:11:53Z	INFO	Starting Controller	{"controller": "claw-autoupdate", "controllerGroup": "claw.prismer.ai", "controllerKind": "Claw"}
+2026-10-13T06:11:53Z	INFO	Starting workers	{"controller": "claw-autoupdate", "controllerGroup": "claw.prismer.ai", "controllerKind": "Claw", "worker count": 1}
+2026-10-13T06:11:53Z	INFO	Starting Controller	{"controller": "clawselfconfig", "controllerGroup": "claw.prismer.ai", "controllerKind": "ClawSelfConfig"}
+2026-10-13T06:11:53Z	INFO	Starting workers	{"controller": "clawselfconfig", "controllerGroup": "claw.prismer.ai", "controllerKind": "ClawSelfConfig", "worker count": 1}
+2026-10-13T06:11:53Z	INFO	Starting Controller	{"controller": "clawchannel", "controllerGroup": "claw.prismer.ai", "controllerKind": "ClawChannel"}
+2026-10-13T06:11:53Z	INFO	Starting workers	{"controller": "clawchannel", "controllerGroup": "claw.prismer.ai", "controllerKind": "ClawChannel", "worker count": 1}
+2026-10-13T06:11:53Z	INFO	Starting Controller	{"controller": "claw", "controllerGroup": "claw.prismer.ai", "controllerKind": "Claw"}
+2026-10-13T06:11:53Z	INFO	Starting workers	{"controller": "claw", "controllerGroup": "claw.prismer.ai", "controllerKind": "Claw", "worker count": 1}
+2026-10-13T06:11:53Z	INFO	Starting Controller	{"controller": "clawops"}
+2026-10-13T06:11:53Z	INFO	Starting workers	{"controller": "clawops", "worker count": 1}
+2026-10-13T06:11:53Z	INFO	reconciling ClawChannel	{"controller": "clawchannel", "controllerGroup": "claw.prismer.ai", "controllerKind": "ClawChannel", "ClawChannel": {"name":"probe","namespace":"lifecycle-test"}, "namespace": "lifecycle-test", "name": "probe", "reconcileID": "d7b3eefc-f235-4cbf-bca3-c96e98d9674e", "name": "probe", "namespace": "lifecycle-test", "referencingClaws": 0}
+2026-10-13T06:11:53Z	INFO	adding finalizer	{"controller": "clawchannel", "controllerGroup": "claw.prismer.ai", "controllerKind": "ClawChannel", "ClawChannel": {"name":"probe","namespace":"lifecycle-test"}, "namespace": "lifecycle-test", "name": "probe", "reconcileID": "d7b3eefc-f235-4cbf-bca3-c96e98d9674e", "name": "probe", "namespace": "lifecycle-test"}
+2026-10-13T06:11:53Z	INFO	reconciling ClawChannel	{"controller": "clawchannel", "controllerGroup": "claw.prismer.ai", "controllerKind": "ClawChannel", "ClawChannel": {"name":"probe","namespace":"lifecycle-test"}, "namespace": "lifecycle-test", "name": "probe", "reconcileID": "6abed2d2-291b-47ad-ab86-89a8cc9171c6", "name": "probe", "namespace": "lifecycle-test", "referencingClaws": 0}
+2026-10-13T06:11:53Z	INFO	reconciling ClawChannel	{"controller": "clawchannel", "controllerGroup": "claw.prismer.ai", "controllerKind": "ClawChannel", "ClawChannel": {"name":"probe","namespace":"lifecycle-test"}, "namespace": "lifecycle-test", "name": "probe", "reconcileID": "f02b1ca4-ed31-4bc1-ac71-95475fdad65f", "name": "probe", "namespace": "lifecycle-test", "referencingClaws": 0}
+2026-10-13T06:11:53Z	INFO	adding finalizer	{"controller": "claw", "controllerGroup": "claw.prismer.ai", "controllerKind": "Claw", "Claw": {"name":"agent","namespace":"lifecycle-test"}, "namespace": "lifecycle-test", "name": "agent", "reconcileID": "31e29a96-309f-4f32-9499-9ffed4aab028", "name": "agent", "namespace": "lifecycle-test"}
+2026-10-13T06:11:53Z	INFO	creating Service	{"controller": "claw", "controllerGroup": "claw.prismer.ai", "controllerKind": "Claw", "Claw": {"name":"agent","namespace":"lifecycle-test"}, "namespace": "lifecycle-test", "name": "agent", "reconcileID": "31e29a96-309f-4f32-9499-9ffed4aab028", "name": "agent", "namespace": "lifecycle-test"}
+2026-10-13T06:11:53Z	INFO	creating ConfigMap	{"controller": "claw", "controllerGroup": "claw.prismer.ai", "controllerKind": "Claw", "Claw": {"name":"agent","namespace":"lifecycle-test"}, "namespace": "lifecycle-test", "name": "agent", "reconcileID": "31e29a96-309f-4f32-9499-9ffed4aab028", "name": "agent-config", "namespace": "lifecycle-test"}
+2026-10-13T06:11:53Z	INFO	creating ServiceAccount	{"controller": "claw", "controllerGroup": "claw.prismer.ai", "controllerKind": "Claw", "Claw": {"name":"agent","namespace":"lifecycle-test"}, "namespace": "lifecycle-test", "name": "agent", "reconcileID": "31e29a96-309f-4f32-9499-9ffed4aab028", "name": "agent", "namespace": "lifecycle-test"}
+2026-10-13T06:11:53Z	INFO	creating PDB	{"controller": "claw", "controllerGroup": "claw.prismer.ai", "controllerKind": "Claw", "Claw": {"name":"agent","namespace":"lifecycle-test"}, "namespace": "lifecycle-test", "name": "agent", "reconcileID": "31e29a96-309f-4f32-9499-9ffed4aab028", "name": "agent", "namespace": "lifecycle-test"}
+2026-10-13T06:11:54Z	INFO	creating StatefulSet	{"controller": "claw", "controllerGroup": "claw.prismer.ai", "controllerKind": "Claw", "Claw": {"name":"agent","namespace":"lifecycle-test"}, "namespace": "lifecycle-test", "name": "agent", "reconcileID": "31e29a96-309f-4f32-9499-9ffed4aab028", "name": "agent", "namespace": "lifecycle-test"}
+2026-10-13T06:11:54Z	DEBUG	events	Instance entering provisioning	{"type": "Normal", "object": {"kind":"Claw","namespace":"lifecycle-test","name":"agent","uid":"fc360af0-a55c-43b4-96be-63ad5c5d9da3","apiVersion":"claw.prismer.ai/v1alpha1","resourceVersion":"878"}, "reason": "ClawProvisioning"}
+Traceback (most recent call last):
+  File "$TASK/k8s4claw/docs/demo/lifecycle-fixed-20261013/scenarios.py", line 207, in <module>
+    try: main()
+  File "$TASK/k8s4claw/docs/demo/lifecycle-fixed-20261013/scenarios.py", line 162, in main
+    assert ok
+AssertionError
+
+[recorder] child exit code: 1

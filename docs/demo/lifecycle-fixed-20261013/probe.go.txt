@@ -1,0 +1,13 @@
+// Test-only probe; product runtime binary is built unchanged.
+package main
+import("encoding/json";"fmt";"net";"net/http";"os";"time")
+func must(err error){if err!=nil {panic(err)}}
+func main(){
+ if len(os.Args)>1 && os.Args[1]=="hold" {fmt.Println("Test channel fixture: no external messages or delivery");for {time.Sleep(time.Hour)}}
+ b,e:=os.ReadFile("/etc/claw/config.json");must(e)
+ var config map[string]any;must(json.Unmarshal(b,&config));if config["testMarker"]!="fixed-contract" {panic("init output missing marker")};fmt.Println("PASS init-generated JSON visible in runtime")
+ e=os.WriteFile("/etc/claw/should-not-write",[]byte("x"),0600);if e==nil {panic("runtime config mount should be read-only")};fmt.Println("PASS runtime config mount read-only")
+ must(os.WriteFile("/workspace/probe",[]byte("shared-workspace"),0600));fmt.Println("PASS runtime workspace writable")
+ conn,e:=net.DialTimeout("unix","/var/run/claw/bus.sock",time.Second);must(e);must(conn.Close());fmt.Println("PASS real IPC Unix socket accepts connection")
+ c:=http.Client{Timeout:time.Second};r,e:=c.Get("http://127.0.0.1:18900/ready");must(e);defer r.Body.Close();if r.StatusCode!=200 {panic(r.Status)};fmt.Println("PASS real gateway /ready HTTP 200")
+}

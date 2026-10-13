@@ -1,0 +1,27 @@
+Local final checks, source e52f47be4b3c56559bb0fd438a1f3c6700c71996
+Go 1.25.9 darwin/arm64; envtest 1.32.0; TMPDIR=/tmp; -p 2 -race
+
+ok  	github.com/Prismer-AI/k8s4claw/api/v1alpha1	(cached)	coverage: 1.9% of statements
+ok  	github.com/Prismer-AI/k8s4claw/cmd/channel-discord	(cached)	coverage: 80.1% of statements
+ok  	github.com/Prismer-AI/k8s4claw/cmd/channel-slack	(cached)	coverage: 80.7% of statements
+ok  	github.com/Prismer-AI/k8s4claw/cmd/channel-webhook	(cached)	coverage: 81.8% of statements
+ok  	github.com/Prismer-AI/k8s4claw/cmd/claw-init	(cached)	coverage: 75.8% of statements
+ok  	github.com/Prismer-AI/k8s4claw/cmd/claw4k8s	(cached)	coverage: 69.6% of statements
+ok  	github.com/Prismer-AI/k8s4claw/cmd/ipcbus	2.851s	coverage: 9.8% of statements
+ok  	github.com/Prismer-AI/k8s4claw/cmd/kubectl-claw	(cached)	coverage: 0.0% of statements
+	github.com/Prismer-AI/k8s4claw/cmd/operator		coverage: 0.0% of statements
+ok  	github.com/Prismer-AI/k8s4claw/internal/controller	(cached)	coverage: 82.9% of statements
+ok  	github.com/Prismer-AI/k8s4claw/internal/controller/autoupdate	(cached)	coverage: [no statements]
+ok  	github.com/Prismer-AI/k8s4claw/internal/ipcbus	(cached)	coverage: 80.9% of statements
+ok  	github.com/Prismer-AI/k8s4claw/internal/registry	(cached)	coverage: 85.8% of statements
+ok  	github.com/Prismer-AI/k8s4claw/internal/rules	(cached)	coverage: 92.9% of statements
+ok  	github.com/Prismer-AI/k8s4claw/internal/runtime	(cached)	coverage: 92.9% of statements
+ok  	github.com/Prismer-AI/k8s4claw/internal/signet	(cached)	coverage: 83.9% of statements
+ok  	github.com/Prismer-AI/k8s4claw/internal/webhook	(cached)	coverage: 97.6% of statements
+ok  	github.com/Prismer-AI/k8s4claw/sdk	(cached)	coverage: 83.1% of statements
+ok  	github.com/Prismer-AI/k8s4claw/sdk/channel	(cached)	coverage: 81.5% of statements
+
+go vet ./...: exit 0
+Total coverage: 66.8%
+Code generation: remote verify-codegen passed; generated CRD field committed.
+Local golangci-lint v2.8.0: existing G115 in unchanged internal/controller/claw_pdb.go:78. Remote latest linter did not report this G115.

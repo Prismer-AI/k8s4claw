@@ -1,0 +1,7 @@
+[
+  {
+    "scenario": "harness completion",
+    "status": "FAIL",
+    "detail": "command exit 1"
+  }
+]

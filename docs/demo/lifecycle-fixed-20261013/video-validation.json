@@ -1,0 +1,54 @@
+[
+  {
+    "file": "03-scenarios.mp4",
+    "bytes": 788136,
+    "decoded_frames": 85,
+    "fps": 2,
+    "duration_seconds": 42.5,
+    "sampled_frames": [
+      17,
+      42,
+      66,
+      83
+    ]
+  },
+  {
+    "file": "04-scenarios-rerun.mp4",
+    "bytes": 776701,
+    "decoded_frames": 89,
+    "fps": 2,
+    "duration_seconds": 44.5,
+    "sampled_frames": [
+      17,
+      44,
+      69,
+      87
+    ]
+  },
+  {
+    "file": "06-final-scenarios.mp4",
+    "bytes": 423658,
+    "decoded_frames": 38,
+    "fps": 2,
+    "duration_seconds": 19.0,
+    "sampled_frames": [
+      7,
+      19,
+      29,
+      37
+    ]
+  },
+  {
+    "file": "08-fresh-final-scenarios.mp4",
+    "bytes": 1549668,
+    "decoded_frames": 147,
+    "fps": 2,
+    "duration_seconds": 73.5,
+    "sampled_frames": [
+      29,
+      73,
+      114,
+      144
+    ]
+  }
+]

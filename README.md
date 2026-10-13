@@ -354,3 +354,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for the full development guide.
 ## License
 
 Apache-2.0
+
+### Recorded Kubernetes lifecycle regression
+
+[Runtime startup, upgrades, rollback and operator-interruption evidence (2026-10-13)](docs/demo/lifecycle-fixed-20261013/README.md) includes real isolated-kind terminal videos, full transcripts, failed attempts, reproduction scripts and explicit test limits. The lifecycle scenarios pass after the scoped fixes; the existing dependency vulnerability scan remains a merge blocker.

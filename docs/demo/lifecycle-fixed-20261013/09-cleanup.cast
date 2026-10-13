@@ -1,0 +1,6 @@
+{"version": 2, "width": 120, "height": 36, "timestamp": 1791872668, "title": "k8s4claw real isolated-kind test terminal", "env": {"TERM": "dumb"}}
+[0.014876, "o", "Delete only the final isolated test cluster; no other context is accessed.\r\n"]
+[0.168678, "o", "Deleting cluster \"k8s4claw-fixed-final-20261013\" ...\r\n"]
+[1.651025, "o", "Deleted nodes: [\"k8s4claw-fixed-final-20261013-control-plane\"]\r\n"]
+[1.773515, "o", "PASS both dedicated test node containers are absent\r\n"]
+[1.773871, "o", "\r\n[recorder] child exit code: 0\r\n"]

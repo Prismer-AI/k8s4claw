@@ -1,0 +1,32 @@
+[
+  {
+    "scenario": "real runtime startup",
+    "status": "PASS",
+    "detail": "Unmodified real-source gateway binary in scratch test image, no init ENV workaround, placeholder credentials and no inference."
+  },
+  {
+    "scenario": "init/config/workspace and IPC contract",
+    "status": "PASS",
+    "detail": "PASS init-generated JSON visible in runtime\nPASS runtime config mount read-only\nPASS runtime workspace writable\nPASS real IPC Unix socket accepts connection\nPASS real gateway /ready HTTP 200"
+  },
+  {
+    "scenario": "normal upgrade health gate",
+    "status": "PASS",
+    "detail": "Same real binary under tags 0.0.1 -> 0.0.2. Actual Pod replacement, target/revision convergence and durable Healthy history required. OCI discovery excluded."
+  },
+  {
+    "scenario": "bad version automatic previous-good recovery",
+    "status": "PASS",
+    "detail": "Exact previous-good :0.0.2 healthy; failed Pod recovered by product controller without harness deletion. Rollback count/history expected 1."
+  },
+  {
+    "scenario": "operator interruption and rollback recovery",
+    "status": "PASS",
+    "detail": "Exact previous-good :0.0.2 healthy; failed Pod recovered by product controller without harness deletion. Rollback count/history expected 2."
+  },
+  {
+    "scenario": "durable accounting after followup",
+    "status": "PASS",
+    "detail": "One Healthy outcome plus two distinct failed update attempts; no duplicate count/history."
+  }
+]
