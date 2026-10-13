@@ -110,9 +110,10 @@ func runServe() error {
 		shutdown(logger, router, wal, bridge, cancel)
 	}()
 
-	// Connect bridge (non-fatal if fails — runtime may start later).
-	if err := bridge.Connect(ctx); err != nil {
-		logger.Error(err, "bridge connect failed (runtime may not be ready yet)")
+	// Native sidecars can run before the runtime. Do not use a bridge whose
+	// initial connection failed: some transports have no connection to read yet.
+	if err := waitForRuntime(ctx, bridge.Connect, logger, time.Second); err != nil {
+		return err
 	}
 
 	// Start outbound loop.
@@ -130,6 +131,30 @@ func runServe() error {
 	// Start UDS server (blocks).
 	logger.Info("starting UDS server")
 	return server.Start(ctx)
+}
+
+// Wait for the runtime without blocking Kubernetes from starting the next
+// container. The native sidecar process is already Running at this point.
+func waitForRuntime(ctx context.Context, connect func(context.Context) error, logger logr.Logger, interval time.Duration) error {
+	for {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		attempt, cancel := context.WithTimeout(ctx, 5*time.Second)
+		err := connect(attempt)
+		cancel()
+		if err == nil {
+			return nil
+		}
+		logger.Info("waiting for runtime bridge", "error", err.Error())
+		timer := time.NewTimer(interval)
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+			return ctx.Err()
+		case <-timer.C:
+		}
+	}
 }
 
 func shutdown(logger logr.Logger, router *ipcbus.Router, wal *ipcbus.WAL, bridge ipcbus.RuntimeBridge, cancel context.CancelFunc) {

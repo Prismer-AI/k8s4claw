@@ -67,7 +67,7 @@ func mergeConfig(srcPath, dstPath, mode string) error {
 		return fmt.Errorf("source config is not valid JSON: %w", err)
 	}
 	if mode == "passthrough" {
-		return os.WriteFile(dstPath, srcData, 0o600)
+		return os.WriteFile(dstPath, srcData, 0o600) //nolint:gosec // G703: destination is an operator-configured volume, never a path from the source JSON.
 	}
 	if mode == "deepmerge" {
 		existing, err := os.ReadFile(dstPath) //nolint:gosec // path is an operator-configured volume
