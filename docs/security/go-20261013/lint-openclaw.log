@@ -1,0 +1,25 @@
+runtimes/openclaw/handler.go:54:18: Error return value of `conn.Close` is not checked (errcheck)
+	defer conn.Close(websocket.StatusNormalClosure, "shutdown")
+	                ^
+runtimes/openclaw/main.go:38:15: Error return value of `fmt.Fprintln` is not checked (errcheck)
+		fmt.Fprintln(w, "ok")
+		            ^
+runtimes/openclaw/main.go:42:15: Error return value of `fmt.Fprintln` is not checked (errcheck)
+		fmt.Fprintln(w, "ready")
+		            ^
+runtimes/openclaw/main.go:75:15: Error return value of `srv.Shutdown` is not checked (errcheck)
+		srv.Shutdown(shutdownCtx)
+		            ^
+runtimes/openclaw/handler.go:120:2: rangeValCopy: each iteration copies 648 bytes (consider pointers or indexing) (gocritic)
+	for _, block := range resp.Content {
+	^
+runtimes/openclaw/main.go:81:3: exitAfterDefer: os.Exit will exit, and `defer cancel()` will not run (gocritic)
+		os.Exit(1)
+		^
+runtimes/openclaw/mock.go:10:1: File is not properly formatted (gofmt)
+	"hello": "Hello! I'm an OpenClaw agent running on Kubernetes, managed by k8s4claw. How can I help your team today?",
+^
+7 issues:
+* errcheck: 4
+* gocritic: 2
+* gofmt: 1

@@ -4,7 +4,6 @@ on:
   push:
     branches: [main]
   pull_request:
-    branches: [main]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -28,8 +27,9 @@ jobs:
           filters: |
             go:
               - '**/*.go'
-              - 'go.mod'
-              - 'go.sum'
+              - '**/go.mod'
+              - '**/go.sum'
+              - '.github/workflows/ci.yml'
               - 'Makefile'
               - 'Dockerfile*'
               - 'runtimes/**/Dockerfile*'
@@ -70,6 +70,9 @@ jobs:
         run: |
           export KUBEBUILDER_ASSETS="$(setup-envtest use 1.32.x -p path)"
           go test -race -coverprofile=coverage.out -covermode=atomic ./...
+      - name: Test OpenClaw module
+        working-directory: runtimes/openclaw
+        run: go test -race ./...
       - name: Upload coverage
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
@@ -91,6 +94,11 @@ jobs:
         run: go build ./...
       - name: Vet
         run: go vet ./...
+      - name: Build and vet OpenClaw module
+        working-directory: runtimes/openclaw
+        run: |
+          go build ./...
+          go vet ./...
 
   verify-codegen:
     needs: changes
@@ -127,6 +135,8 @@ jobs:
           - { name: init, file: Dockerfile.init, context: . }
           - { name: ipcbus, file: Dockerfile.ipcbus, context: . }
           - { name: channel-slack, file: Dockerfile.channel-slack, context: . }
+          - { name: channel-discord, file: Dockerfile.channel-discord, context: . }
+          - { name: mock, file: runtimes/mock/Dockerfile, context: runtimes/mock }
           - { name: channel-webhook, file: Dockerfile.channel-webhook, context: . }
           - { name: openclaw, file: runtimes/openclaw/Dockerfile, context: runtimes/openclaw }
     steps:
@@ -154,15 +164,20 @@ jobs:
     needs: changes
     if: needs.changes.outputs.go == 'true'
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        module: ['.', 'runtimes/openclaw']
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
         with:
-          go-version-file: go.mod
+          go-version-file: ${{ matrix.module }}/go.mod
           cache: true
       - name: Install govulncheck
         run: go install golang.org/x/vuln/cmd/govulncheck@latest
-      - name: Run govulncheck
+      - name: Scan module
+        working-directory: ${{ matrix.module }}
         run: govulncheck ./...
 
   coverage-gate:

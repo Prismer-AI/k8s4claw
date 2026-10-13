@@ -1,6 +1,6 @@
 module github.com/Prismer-AI/k8s4claw/runtimes/openclaw
 
-go 1.25.0
+go 1.26.9
 
 require (
 	github.com/anthropics/anthropic-sdk-go v1.30.0

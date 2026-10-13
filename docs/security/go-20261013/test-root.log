@@ -1,0 +1,19 @@
+ok  	github.com/Prismer-AI/k8s4claw/api/v1alpha1	1.575s	coverage: 1.9% of statements
+ok  	github.com/Prismer-AI/k8s4claw/cmd/channel-discord	2.066s	coverage: 80.1% of statements
+ok  	github.com/Prismer-AI/k8s4claw/cmd/channel-slack	20.426s	coverage: 80.7% of statements
+ok  	github.com/Prismer-AI/k8s4claw/cmd/channel-webhook	9.974s	coverage: 81.8% of statements
+ok  	github.com/Prismer-AI/k8s4claw/cmd/claw-init	3.193s	coverage: 75.8% of statements
+ok  	github.com/Prismer-AI/k8s4claw/cmd/claw4k8s	11.862s	coverage: 69.6% of statements
+ok  	github.com/Prismer-AI/k8s4claw/cmd/ipcbus	2.648s	coverage: 9.8% of statements
+ok  	github.com/Prismer-AI/k8s4claw/cmd/kubectl-claw	6.981s	coverage: 0.0% of statements
+	github.com/Prismer-AI/k8s4claw/cmd/operator		coverage: 0.0% of statements
+ok  	github.com/Prismer-AI/k8s4claw/internal/controller	39.476s	coverage: 82.9% of statements
+ok  	github.com/Prismer-AI/k8s4claw/internal/controller/autoupdate	6.369s	coverage: [no statements]
+ok  	github.com/Prismer-AI/k8s4claw/internal/ipcbus	7.799s	coverage: 80.9% of statements
+ok  	github.com/Prismer-AI/k8s4claw/internal/registry	5.802s	coverage: 85.8% of statements
+ok  	github.com/Prismer-AI/k8s4claw/internal/rules	7.029s	coverage: 92.9% of statements
+ok  	github.com/Prismer-AI/k8s4claw/internal/runtime	6.848s	coverage: 92.9% of statements
+ok  	github.com/Prismer-AI/k8s4claw/internal/signet	6.393s	coverage: 83.9% of statements
+ok  	github.com/Prismer-AI/k8s4claw/internal/webhook	6.606s	coverage: 97.6% of statements
+ok  	github.com/Prismer-AI/k8s4claw/sdk	3.094s	coverage: 83.1% of statements
+ok  	github.com/Prismer-AI/k8s4claw/sdk/channel	4.410s	coverage: 81.5% of statements
