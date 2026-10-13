@@ -1,0 +1,2 @@
+controller-gen object paths="./api/..."
+controller-gen crd paths="./api/..." output:crd:artifacts:config=config/crd/bases
