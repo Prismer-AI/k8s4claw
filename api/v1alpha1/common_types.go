@@ -443,6 +443,11 @@ type AutoUpdateSpec struct {
 
 // AutoUpdateStatus reports auto-update state.
 type AutoUpdateStatus struct {
+	// LastCompletedUpdate identifies the last durably accounted outcome.
+	// It prevents duplicate history/count changes across retries and restarts.
+	// +optional
+	LastCompletedUpdate string `json:"lastCompletedUpdate,omitempty"`
+
 	// CurrentVersion is the currently running image tag.
 	// +optional
 	CurrentVersion string `json:"currentVersion,omitempty"`

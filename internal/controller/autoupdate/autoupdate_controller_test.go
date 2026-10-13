@@ -111,7 +111,8 @@ func TestAutoUpdate_FindsNewVersion(t *testing.T) {
 	}
 
 	lister := &mockTagLister{tags: []string{"1.0.0", "1.1.0", "1.2.0", "latest"}}
-	r := newTestAutoUpdateReconciler([]runtime.Object{claw}, lister)
+	sts, pod := healthyWorkload(claw, good)
+	r := newTestAutoUpdateReconciler([]runtime.Object{claw, sts, pod}, lister)
 	_, err := r.Reconcile(context.Background(), ctrl.Request{
 		NamespacedName: types.NamespacedName{Name: "test", Namespace: "default"},
 	})
@@ -182,6 +183,7 @@ func TestAutoUpdate_HealthCheckSuccess(t *testing.T) {
 			Annotations: map[string]string{
 				"claw.prismer.ai/target-image":   "ghcr.io/prismer-ai/k8s4claw-openclaw:1.2.0",
 				"claw.prismer.ai/update-phase":   "HealthCheck",
+				"claw.prismer.ai/previous-image": good,
 				"claw.prismer.ai/update-started": now.Format(time.RFC3339),
 			},
 		},
@@ -201,18 +203,9 @@ func TestAutoUpdate_HealthCheckSuccess(t *testing.T) {
 		},
 	}
 
-	replicas := int32(1)
-	sts := &appsv1.StatefulSet{
-		ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "default"},
-		Spec:       appsv1.StatefulSetSpec{Replicas: &replicas},
-		Status: appsv1.StatefulSetStatus{
-			Replicas:        1,
-			ReadyReplicas:   1,
-			UpdatedReplicas: 1,
-		},
-	}
+	sts, pod := healthyWorkload(claw, bad)
 
-	r := newTestAutoUpdateReconciler([]runtime.Object{claw, sts}, &mockTagLister{})
+	r := newTestAutoUpdateReconciler([]runtime.Object{claw, sts, pod}, &mockTagLister{})
 	_, err := r.Reconcile(context.Background(), ctrl.Request{
 		NamespacedName: types.NamespacedName{Name: "test", Namespace: "default"},
 	})
@@ -241,6 +234,7 @@ func TestAutoUpdate_HealthCheckTimeout_Rollback(t *testing.T) {
 			Annotations: map[string]string{
 				"claw.prismer.ai/target-image":   "ghcr.io/prismer-ai/k8s4claw-openclaw:1.2.0",
 				"claw.prismer.ai/update-phase":   "HealthCheck",
+				"claw.prismer.ai/previous-image": good,
 				"claw.prismer.ai/update-started": pastTime.Format(time.RFC3339),
 			},
 		},
@@ -292,7 +286,7 @@ func TestAutoUpdate_HealthCheckTimeout_Rollback(t *testing.T) {
 	if len(updated.Status.AutoUpdate.FailedVersions) != 1 || updated.Status.AutoUpdate.FailedVersions[0] != "1.2.0" {
 		t.Errorf("FailedVersions = %v, want [1.2.0]", updated.Status.AutoUpdate.FailedVersions)
 	}
-	if ann := updated.Annotations["claw.prismer.ai/target-image"]; ann != "" {
-		t.Errorf("target-image should be cleared on rollback, got %q", ann)
+	if ann := updated.Annotations["claw.prismer.ai/target-image"]; ann != good {
+		t.Errorf("target-image must restore previous-good, got %q", ann)
 	}
 }

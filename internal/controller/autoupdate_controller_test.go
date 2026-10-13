@@ -6,6 +6,7 @@ import (
 	"time"
 
 	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -38,6 +39,7 @@ func (m *testTagLister) ListTags(_ context.Context, _ string) ([]string, error) 
 
 func newTestScheme() *runtime.Scheme {
 	s := runtime.NewScheme()
+	_ = corev1.AddToScheme(s)
 	_ = clawv1alpha1.AddToScheme(s)
 	_ = appsv1.AddToScheme(s)
 	return s

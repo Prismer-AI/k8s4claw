@@ -118,6 +118,7 @@ func main() {
 	// Register auto-update controller.
 	registryClient := clawregistry.NewRegistryClient()
 	if err := (&controller.AutoUpdateReconciler{
+		APIReader: mgr.GetAPIReader(),
 		Client:    mgr.GetClient(),
 		Scheme:    mgr.GetScheme(),
 		Recorder:  mgr.GetEventRecorderFor("autoupdate-controller"), //nolint:staticcheck // SA1019: migration to events.EventRecorder requires controller struct changes

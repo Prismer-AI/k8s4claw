@@ -28,7 +28,7 @@ func injectIPCBusSidecar(claw *clawv1alpha1.Claw, podTemplate *corev1.PodTemplat
 		{Name: "CLAW_NAMESPACE", Value: claw.Namespace},
 		{Name: "CLAW_RUNTIME", Value: runtimeType},
 		{Name: "CLAW_GATEWAY_PORT", Value: fmt.Sprintf("%d", gatewayPort)},
-		{Name: "IPC_SOCKET_PATH", Value: "/var/run/claw"},
+		{Name: "IPC_SOCKET_PATH", Value: "/var/run/claw/bus.sock"},
 		{Name: "WAL_DIR", Value: "/var/run/claw/wal"},
 	}
 

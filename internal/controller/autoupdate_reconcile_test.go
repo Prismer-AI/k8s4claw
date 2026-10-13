@@ -34,7 +34,8 @@ func TestReconcile_InitiatesUpdate(t *testing.T) {
 		},
 	}
 
-	cl := fake.NewClientBuilder().WithScheme(scheme).WithObjects(claw).WithStatusSubresource(claw).Build()
+	sts, pod := healthyAutoUpdateWorkload(claw, "ghcr.io/prismer-ai/k8s4claw-openclaw:1.0.0")
+	cl := fake.NewClientBuilder().WithScheme(scheme).WithObjects(claw, sts, pod).WithStatusSubresource(claw).Build()
 	r := &AutoUpdateReconciler{
 		Client:    cl,
 		Scheme:    scheme,
@@ -116,9 +117,10 @@ func TestReconcile_HealthCheckPassed(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "test", Namespace: "default",
 			Annotations: map[string]string{
-				annotationUpdatePhase: "HealthCheck",
-				annotationTargetImage: "ghcr.io/prismer-ai/k8s4claw-openclaw:1.1.0",
-				annotationUpdateStart: now.Add(-1 * time.Minute).Format(time.RFC3339),
+				annotationUpdatePhase:   "HealthCheck",
+				annotationPreviousImage: "ghcr.io/prismer-ai/k8s4claw-openclaw:1.0.0",
+				annotationTargetImage:   "ghcr.io/prismer-ai/k8s4claw-openclaw:1.1.0",
+				annotationUpdateStart:   now.Add(-1 * time.Minute).Format(time.RFC3339),
 			},
 		},
 		Spec: clawv1alpha1.ClawSpec{
@@ -135,23 +137,9 @@ func TestReconcile_HealthCheckPassed(t *testing.T) {
 		},
 	}
 
-	// StatefulSet with all replicas ready.
-	sts := &appsv1.StatefulSet{
-		ObjectMeta: metav1.ObjectMeta{Name: "test", Namespace: "default"},
-		Spec: appsv1.StatefulSetSpec{
-			Replicas: ptr.To(int32(1)),
-			Selector: &metav1.LabelSelector{MatchLabels: map[string]string{"app": "test"}},
-			Template: corev1.PodTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{Labels: map[string]string{"app": "test"}},
-			},
-		},
-		Status: appsv1.StatefulSetStatus{
-			UpdatedReplicas: 1,
-			ReadyReplicas:   1,
-		},
-	}
+	sts, pod := healthyAutoUpdateWorkload(claw, "ghcr.io/prismer-ai/k8s4claw-openclaw:1.1.0")
 
-	cl := fake.NewClientBuilder().WithScheme(scheme).WithObjects(claw, sts).WithStatusSubresource(claw).Build()
+	cl := fake.NewClientBuilder().WithScheme(scheme).WithObjects(claw, sts, pod).WithStatusSubresource(claw).Build()
 	r := &AutoUpdateReconciler{
 		Client:    cl,
 		Scheme:    scheme,
@@ -190,9 +178,10 @@ func TestReconcile_HealthCheckTimeout_Rollback(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "test", Namespace: "default",
 			Annotations: map[string]string{
-				annotationUpdatePhase: "HealthCheck",
-				annotationTargetImage: "ghcr.io/prismer-ai/k8s4claw-openclaw:1.1.0",
-				annotationUpdateStart: now.Add(-15 * time.Minute).Format(time.RFC3339),
+				annotationUpdatePhase:   "HealthCheck",
+				annotationPreviousImage: "ghcr.io/prismer-ai/k8s4claw-openclaw:1.0.0",
+				annotationTargetImage:   "ghcr.io/prismer-ai/k8s4claw-openclaw:1.1.0",
+				annotationUpdateStart:   now.Add(-15 * time.Minute).Format(time.RFC3339),
 			},
 		},
 		Spec: clawv1alpha1.ClawSpec{
@@ -241,13 +230,13 @@ func TestReconcile_HealthCheckTimeout_Rollback(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	// Verify rollback: target-image annotation removed.
+	// Verify rollback retains the exact saved previous-good target.
 	var updated clawv1alpha1.Claw
 	if err := cl.Get(context.Background(), types.NamespacedName{Name: "test", Namespace: "default"}, &updated); err != nil {
 		t.Fatal(err)
 	}
-	if _, ok := updated.Annotations[annotationTargetImage]; ok {
-		t.Error("expected target-image annotation to be removed after rollback")
+	if updated.Annotations[annotationTargetImage] != "ghcr.io/prismer-ai/k8s4claw-openclaw:1.0.0" {
+		t.Error("expected exact previous-good target after rollback")
 	}
 	if updated.Status.AutoUpdate == nil || updated.Status.AutoUpdate.RollbackCount != 1 {
 		t.Error("expected RollbackCount=1")
@@ -263,9 +252,10 @@ func TestReconcile_RollbackOpensCircuitBreaker(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "test", Namespace: "default",
 			Annotations: map[string]string{
-				annotationUpdatePhase: "HealthCheck",
-				annotationTargetImage: "ghcr.io/prismer-ai/k8s4claw-openclaw:1.1.0",
-				annotationUpdateStart: now.Add(-15 * time.Minute).Format(time.RFC3339),
+				annotationUpdatePhase:   "HealthCheck",
+				annotationPreviousImage: "ghcr.io/prismer-ai/k8s4claw-openclaw:1.0.0",
+				annotationTargetImage:   "ghcr.io/prismer-ai/k8s4claw-openclaw:1.1.0",
+				annotationUpdateStart:   now.Add(-15 * time.Minute).Format(time.RFC3339),
 			},
 		},
 		Spec: clawv1alpha1.ClawSpec{
@@ -368,9 +358,10 @@ func TestReconcile_HealthCheck_STSNotFound_WithinTimeout(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "test", Namespace: "default",
 			Annotations: map[string]string{
-				annotationUpdatePhase: "HealthCheck",
-				annotationTargetImage: "ghcr.io/prismer-ai/k8s4claw-openclaw:1.1.0",
-				annotationUpdateStart: now.Add(-1 * time.Minute).Format(time.RFC3339),
+				annotationUpdatePhase:   "HealthCheck",
+				annotationPreviousImage: "ghcr.io/prismer-ai/k8s4claw-openclaw:1.0.0",
+				annotationTargetImage:   "ghcr.io/prismer-ai/k8s4claw-openclaw:1.1.0",
+				annotationUpdateStart:   now.Add(-1 * time.Minute).Format(time.RFC3339),
 			},
 		},
 		Spec: clawv1alpha1.ClawSpec{
@@ -413,9 +404,10 @@ func TestReconcile_HealthCheck_STSNotFound_Timeout(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "test", Namespace: "default",
 			Annotations: map[string]string{
-				annotationUpdatePhase: "HealthCheck",
-				annotationTargetImage: "ghcr.io/prismer-ai/k8s4claw-openclaw:1.1.0",
-				annotationUpdateStart: now.Add(-15 * time.Minute).Format(time.RFC3339),
+				annotationUpdatePhase:   "HealthCheck",
+				annotationPreviousImage: "ghcr.io/prismer-ai/k8s4claw-openclaw:1.0.0",
+				annotationTargetImage:   "ghcr.io/prismer-ai/k8s4claw-openclaw:1.1.0",
+				annotationUpdateStart:   now.Add(-15 * time.Minute).Format(time.RFC3339),
 			},
 		},
 		Spec: clawv1alpha1.ClawSpec{
@@ -449,8 +441,8 @@ func TestReconcile_HealthCheck_STSNotFound_Timeout(t *testing.T) {
 	if err := cl.Get(context.Background(), types.NamespacedName{Name: "test", Namespace: "default"}, &updated); err != nil {
 		t.Fatal(err)
 	}
-	if _, ok := updated.Annotations[annotationTargetImage]; ok {
-		t.Error("expected annotations cleared after rollback")
+	if updated.Annotations[annotationTargetImage] != "ghcr.io/prismer-ai/k8s4claw-openclaw:1.0.0" || updated.Annotations[annotationUpdatePhase] != "RollingBack" {
+		t.Error("expected saved target and durable rollback phase until StatefulSet is healthy")
 	}
 }
 
@@ -462,9 +454,10 @@ func TestReconcile_HealthCheck_InvalidStartTime(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "test", Namespace: "default",
 			Annotations: map[string]string{
-				annotationUpdatePhase: "HealthCheck",
-				annotationTargetImage: "ghcr.io/prismer-ai/k8s4claw-openclaw:1.1.0",
-				annotationUpdateStart: "not-a-time",
+				annotationUpdatePhase:   "HealthCheck",
+				annotationPreviousImage: "ghcr.io/prismer-ai/k8s4claw-openclaw:1.0.0",
+				annotationTargetImage:   "ghcr.io/prismer-ai/k8s4claw-openclaw:1.1.0",
+				annotationUpdateStart:   "not-a-time",
 			},
 		},
 		Spec: clawv1alpha1.ClawSpec{
@@ -504,9 +497,10 @@ func TestReconcile_HealthCheck_WaitingForReplicas(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "test", Namespace: "default",
 			Annotations: map[string]string{
-				annotationUpdatePhase: "HealthCheck",
-				annotationTargetImage: "ghcr.io/prismer-ai/k8s4claw-openclaw:1.1.0",
-				annotationUpdateStart: now.Add(-1 * time.Minute).Format(time.RFC3339),
+				annotationUpdatePhase:   "HealthCheck",
+				annotationPreviousImage: "ghcr.io/prismer-ai/k8s4claw-openclaw:1.0.0",
+				annotationTargetImage:   "ghcr.io/prismer-ai/k8s4claw-openclaw:1.1.0",
+				annotationUpdateStart:   now.Add(-1 * time.Minute).Format(time.RFC3339),
 			},
 		},
 		Spec: clawv1alpha1.ClawSpec{
@@ -565,9 +559,10 @@ func TestReconcile_HealthCheck_CustomTimeout(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "test", Namespace: "default",
 			Annotations: map[string]string{
-				annotationUpdatePhase: "HealthCheck",
-				annotationTargetImage: "ghcr.io/prismer-ai/k8s4claw-openclaw:1.1.0",
-				annotationUpdateStart: now.Add(-25 * time.Minute).Format(time.RFC3339),
+				annotationUpdatePhase:   "HealthCheck",
+				annotationPreviousImage: "ghcr.io/prismer-ai/k8s4claw-openclaw:1.0.0",
+				annotationTargetImage:   "ghcr.io/prismer-ai/k8s4claw-openclaw:1.1.0",
+				annotationUpdateStart:   now.Add(-25 * time.Minute).Format(time.RFC3339),
 			},
 		},
 		Spec: clawv1alpha1.ClawSpec{
@@ -661,4 +656,19 @@ func TestReconcile_NotDueYet(t *testing.T) {
 	if result.RequeueAfter == 0 {
 		t.Error("should requeue at next cron")
 	}
+}
+
+func healthyAutoUpdateWorkload(claw *clawv1alpha1.Claw, image string) (*appsv1.StatefulSet, *corev1.Pod) {
+	claw.UID = "claw-uid"
+	sts := &appsv1.StatefulSet{ObjectMeta: metav1.ObjectMeta{Name: claw.Name, Namespace: claw.Namespace, UID: "sts-uid", Generation: 7,
+		OwnerReferences: []metav1.OwnerReference{{APIVersion: clawv1alpha1.GroupVersion.String(), Kind: "Claw", Name: claw.Name, UID: claw.UID, Controller: ptr.To(true)}}},
+		Spec: appsv1.StatefulSetSpec{Replicas: ptr.To(int32(1)), Selector: &metav1.LabelSelector{MatchLabels: map[string]string{"app": claw.Name}},
+			Template: corev1.PodTemplateSpec{Spec: corev1.PodSpec{Containers: []corev1.Container{{Name: "runtime", Image: image}}}}},
+		Status: appsv1.StatefulSetStatus{ObservedGeneration: 7, CurrentRevision: "revision", UpdateRevision: "revision", UpdatedReplicas: 1, ReadyReplicas: 1}}
+	pod := &corev1.Pod{ObjectMeta: metav1.ObjectMeta{Name: claw.Name + "-0", Namespace: claw.Namespace, UID: "pod-uid",
+		Labels:          map[string]string{"app": claw.Name, appsv1.ControllerRevisionHashLabelKey: "revision"},
+		OwnerReferences: []metav1.OwnerReference{{APIVersion: "apps/v1", Kind: "StatefulSet", Name: sts.Name, UID: sts.UID, Controller: ptr.To(true)}}},
+		Spec:   corev1.PodSpec{Containers: []corev1.Container{{Name: "runtime", Image: image}}},
+		Status: corev1.PodStatus{Conditions: []corev1.PodCondition{{Type: corev1.PodReady, Status: corev1.ConditionTrue}}}}
+	return sts, pod
 }
