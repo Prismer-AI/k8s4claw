@@ -4204,8 +4204,8 @@ func TestInjectIPCBusSidecar(t *testing.T) {
 	if envMap["CLAW_GATEWAY_PORT"] != "18900" {
 		t.Errorf("CLAW_GATEWAY_PORT = %q; want %q", envMap["CLAW_GATEWAY_PORT"], "18900")
 	}
-	if envMap["IPC_SOCKET_PATH"] != "/var/run/claw" {
-		t.Errorf("IPC_SOCKET_PATH = %q; want %q", envMap["IPC_SOCKET_PATH"], "/var/run/claw")
+	if envMap["IPC_SOCKET_PATH"] != "/var/run/claw/bus.sock" {
+		t.Errorf("IPC_SOCKET_PATH = %q; want %q", envMap["IPC_SOCKET_PATH"], "/var/run/claw/bus.sock")
 	}
 
 	// Check preStop hook.

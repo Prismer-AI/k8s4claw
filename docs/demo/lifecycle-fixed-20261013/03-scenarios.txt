@@ -1,0 +1,186 @@
+REAL FIXED SOURCE KIND TEST; no init environment workaround; no paid inference.
+$ git rev-parse HEAD
+48274b25a228503dcdc2cab08fe2be2be669588e
+$ $TASK/.tools/bin/kind load docker-image --name k8s4claw-fixed-20261013 claw-operator-fixed:test claw-init-fixed:test claw-ipcbus-fixed:test claw-channel-probe:test ghcr.io/prismer-ai/k8s4claw-openclaw:0.0.1 ghcr.io/prismer-ai/k8s4claw-openclaw:0.0.2 ghcr.io/prismer-ai/k8s4claw-openclaw:0.0.3 ghcr.io/prismer-ai/k8s4claw-openclaw:latest
+Image: "claw-operator-fixed:test" with ID "sha256:dbcf85d228c739ef1c407adaa1abc1716f34bd18cabcd5dcd20d36bea348c6ea" not yet present on node "k8s4claw-fixed-20261013-control-plane", loading...
+Image: "claw-init-fixed:test" with ID "sha256:974745afed27aa782cba199a6d3c57e9ee4e1ae016c85c11e8b9bdcb2e1b7fba" not yet present on node "k8s4claw-fixed-20261013-control-plane", loading...
+Image: "claw-ipcbus-fixed:test" with ID "sha256:47fed1cc5ee83cd4174f4d8864c0afaeb61c5307768b9708fdfd0fe799fb2805" not yet present on node "k8s4claw-fixed-20261013-control-plane", loading...
+Image: "claw-channel-probe:test" with ID "sha256:27dbb4bafcb200d7390d8f802eeb623ccc681b1af793a8fd47c31a215da32888" not yet present on node "k8s4claw-fixed-20261013-control-plane", loading...
+Image: "ghcr.io/prismer-ai/k8s4claw-openclaw:0.0.1" with ID "sha256:2547afd38ec77b5130789968b69eebc3adc7895f71ed71721aab5003364a2019" not yet present on node "k8s4claw-fixed-20261013-control-plane", loading...
+Image: "ghcr.io/prismer-ai/k8s4claw-openclaw:0.0.2" with ID "sha256:2547afd38ec77b5130789968b69eebc3adc7895f71ed71721aab5003364a2019" not yet present on node "k8s4claw-fixed-20261013-control-plane", loading...
+Image: "ghcr.io/prismer-ai/k8s4claw-openclaw:0.0.3" with ID "sha256:2ac37180b5c073694b449d349d0df859d4e44765cbc0b051a3c246f432d03a32" not yet present on node "k8s4claw-fixed-20261013-control-plane", loading...
+Image: "ghcr.io/prismer-ai/k8s4claw-openclaw:latest" with ID "sha256:2547afd38ec77b5130789968b69eebc3adc7895f71ed71721aab5003364a2019" not yet present on node "k8s4claw-fixed-20261013-control-plane", loading...
+$ $TASK/.tools/bin/kubectl --context kind-k8s4claw-fixed-20261013 -n lifecycle-test create namespace lifecycle-test
+namespace/lifecycle-test created
+$ $TASK/.tools/bin/kubectl --context kind-k8s4claw-fixed-20261013 apply -f $TASK/k8s4claw/config/crd/bases
+customresourcedefinition.apiextensions.k8s.io/clawchannels.claw.prismer.ai created
+customresourcedefinition.apiextensions.k8s.io/clawopsescalations.claw.prismer.ai created
+customresourcedefinition.apiextensions.k8s.io/claws.claw.prismer.ai created
+customresourcedefinition.apiextensions.k8s.io/clawselfconfigs.claw.prismer.ai created
+$ $TASK/.tools/bin/kubectl --context kind-k8s4claw-fixed-20261013 -n lifecycle-test wait --for=condition=Established crd/claws.claw.prismer.ai --timeout=30s
+customresourcedefinition.apiextensions.k8s.io/claws.claw.prismer.ai condition met
+$ $TASK/.tools/bin/kubectl --context kind-k8s4claw-fixed-20261013 -n lifecycle-test apply -f -
+serviceaccount/operator created
+$ $TASK/.tools/bin/kubectl --context kind-k8s4claw-fixed-20261013 apply -f $TASK/k8s4claw/config/rbac/role.yaml
+clusterrole.rbac.authorization.k8s.io/k8s4claw-operator created
+$ $TASK/.tools/bin/kubectl --context kind-k8s4claw-fixed-20261013 -n lifecycle-test apply -f -
+clusterrolebinding.rbac.authorization.k8s.io/fixed-test-operator created
+$ $TASK/.tools/bin/kubectl --context kind-k8s4claw-fixed-20261013 -n lifecycle-test apply -f -
+deployment.apps/operator created
+$ $TASK/.tools/bin/kubectl --context kind-k8s4claw-fixed-20261013 -n lifecycle-test rollout status deployment/operator --timeout=90s
+Waiting for deployment "operator" rollout to finish: 0 out of 1 new replicas have been updated...
+Waiting for deployment "operator" rollout to finish: 0 of 1 updated replicas are available...
+deployment "operator" successfully rolled out
+$ $TASK/.tools/bin/kubectl --context kind-k8s4claw-fixed-20261013 -n lifecycle-test apply -f -
+secret/test-only created
+$ $TASK/.tools/bin/kubectl --context kind-k8s4claw-fixed-20261013 -n lifecycle-test apply -f -
+clawchannel.claw.prismer.ai/probe created
+$ $TASK/.tools/bin/kubectl --context kind-k8s4claw-fixed-20261013 -n lifecycle-test apply -f -
+claw.claw.prismer.ai/agent created
+Error from server (NotFound): statefulsets.apps "agent" not found
+Error from server (NotFound): statefulsets.apps "agent" not found
+Error from server (NotFound): statefulsets.apps "agent" not found
+Error from server (NotFound): statefulsets.apps "agent" not found
+Error from server (NotFound): statefulsets.apps "agent" not found
+Error from server (NotFound): statefulsets.apps "agent" not found
+Error from server (NotFound): statefulsets.apps "agent" not found
+Error from server (NotFound): statefulsets.apps "agent" not found
+Error from server (NotFound): statefulsets.apps "agent" not found
+Error from server (NotFound): statefulsets.apps "agent" not found
+Error from server (NotFound): statefulsets.apps "agent" not found
+Error from server (NotFound): statefulsets.apps "agent" not found
+Error from server (NotFound): statefulsets.apps "agent" not found
+Error from server (NotFound): statefulsets.apps "agent" not found
+Error from server (NotFound): statefulsets.apps "agent" not found
+Error from server (NotFound): statefulsets.apps "agent" not found
+Error from server (NotFound): statefulsets.apps "agent" not found
+Error from server (NotFound): statefulsets.apps "agent" not found
+Error from server (NotFound): statefulsets.apps "agent" not found
+Error from server (NotFound): statefulsets.apps "agent" not found
+Error from server (NotFound): statefulsets.apps "agent" not found
+Error from server (NotFound): statefulsets.apps "agent" not found
+Error from server (NotFound): statefulsets.apps "agent" not found
+Error from server (NotFound): statefulsets.apps "agent" not found
+Error from server (NotFound): statefulsets.apps "agent" not found
+Error from server (NotFound): statefulsets.apps "agent" not found
+Error from server (NotFound): statefulsets.apps "agent" not found
+Error from server (NotFound): statefulsets.apps "agent" not found
+Error from server (NotFound): statefulsets.apps "agent" not found
+Error from server (NotFound): statefulsets.apps "agent" not found
+Error from server (NotFound): statefulsets.apps "agent" not found
+Error from server (NotFound): statefulsets.apps "agent" not found
+Error from server (NotFound): statefulsets.apps "agent" not found
+Error from server (NotFound): statefulsets.apps "agent" not found
+Error from server (NotFound): statefulsets.apps "agent" not found
+Error from server (NotFound): statefulsets.apps "agent" not found
+Error from server (NotFound): statefulsets.apps "agent" not found
+Error from server (NotFound): statefulsets.apps "agent" not found
+Error from server (NotFound): statefulsets.apps "agent" not found
+Error from server (NotFound): statefulsets.apps "agent" not found
+Error from server (NotFound): statefulsets.apps "agent" not found
+Error from server (NotFound): statefulsets.apps "agent" not found
+Error from server (NotFound): statefulsets.apps "agent" not found
+Error from server (NotFound): statefulsets.apps "agent" not found
+Error from server (NotFound): statefulsets.apps "agent" not found
+Error from server (NotFound): statefulsets.apps "agent" not found
+Error from server (NotFound): statefulsets.apps "agent" not found
+Error from server (NotFound): statefulsets.apps "agent" not found
+Error from server (NotFound): statefulsets.apps "agent" not found
+Error from server (NotFound): statefulsets.apps "agent" not found
+Error from server (NotFound): statefulsets.apps "agent" not found
+Error from server (NotFound): statefulsets.apps "agent" not found
+Error from server (NotFound): statefulsets.apps "agent" not found
+Error from server (NotFound): statefulsets.apps "agent" not found
+Error from server (NotFound): statefulsets.apps "agent" not found
+Error from server (NotFound): statefulsets.apps "agent" not found
+Error from server (NotFound): statefulsets.apps "agent" not found
+Error from server (NotFound): statefulsets.apps "agent" not found
+Error from server (NotFound): statefulsets.apps "agent" not found
+Error from server (NotFound): statefulsets.apps "agent" not found
+Error from server (NotFound): statefulsets.apps "agent" not found
+Error from server (NotFound): statefulsets.apps "agent" not found
+Error from server (NotFound): statefulsets.apps "agent" not found
+Error from server (NotFound): statefulsets.apps "agent" not found
+Error from server (NotFound): statefulsets.apps "agent" not found
+Error from server (NotFound): statefulsets.apps "agent" not found
+Error from server (NotFound): statefulsets.apps "agent" not found
+Error from server (NotFound): statefulsets.apps "agent" not found
+Error from server (NotFound): statefulsets.apps "agent" not found
+Error from server (NotFound): statefulsets.apps "agent" not found
+Error from server (NotFound): statefulsets.apps "agent" not found
+Error from server (NotFound): statefulsets.apps "agent" not found
+Error from server (NotFound): statefulsets.apps "agent" not found
+Error from server (NotFound): statefulsets.apps "agent" not found
+
+RESULT {"scenario": "harness completion", "status": "FAIL", "detail": "command exit 1"}
+
+$ $TASK/.tools/bin/kubectl --context kind-k8s4claw-fixed-20261013 -n lifecycle-test get pods -o wide
+NAME                       READY   STATUS    RESTARTS      AGE     IP           NODE                                    NOMINATED NODE   READINESS GATES
+operator-cc75979cc-rcqkd   1/1     Running   1 (33s ago)   2m32s   10.244.0.5   k8s4claw-fixed-20261013-control-plane   <none>           <none>
+$ $TASK/.tools/bin/kubectl --context kind-k8s4claw-fixed-20261013 -n lifecycle-test logs deployment/operator --tail=50
+2026-10-13T06:10:18Z	ERROR	controller-runtime.cache.UnhandledError	Failed to watch	{"reflector": "$TASK/.state/go-mod/k8s.io/client-go@v0.35.2/tools/cache/reflector.go:289", "type": "*v1alpha1.ClawOpsEscalation", "error": "failed to list *v1alpha1.ClawOpsEscalation: clawopsescalations.claw.prismer.ai is forbidden: User \"system:serviceaccount:lifecycle-test:operator\" cannot list resource \"clawopsescalations\" in API group \"claw.prismer.ai\" at the cluster scope"}
+k8s.io/apimachinery/pkg/util/runtime.logError
+	$TASK/.state/go-mod/k8s.io/apimachinery@v0.35.2/pkg/util/runtime/runtime.go:221
+k8s.io/apimachinery/pkg/util/runtime.handleError
+	$TASK/.state/go-mod/k8s.io/apimachinery@v0.35.2/pkg/util/runtime/runtime.go:212
+k8s.io/apimachinery/pkg/util/runtime.HandleErrorWithContext
+	$TASK/.state/go-mod/k8s.io/apimachinery@v0.35.2/pkg/util/runtime/runtime.go:198
+k8s.io/client-go/tools/cache.DefaultWatchErrorHandler
+	$TASK/.state/go-mod/k8s.io/client-go@v0.35.2/tools/cache/reflector.go:204
+k8s.io/client-go/tools/cache.(*Reflector).RunWithContext.func1
+	$TASK/.state/go-mod/k8s.io/client-go@v0.35.2/tools/cache/reflector.go:370
+k8s.io/apimachinery/pkg/util/wait.BackoffUntil.func1
+	$TASK/.state/go-mod/k8s.io/apimachinery@v0.35.2/pkg/util/wait/backoff.go:233
+k8s.io/apimachinery/pkg/util/wait.BackoffUntilWithContext.func1
+	$TASK/.state/go-mod/k8s.io/apimachinery@v0.35.2/pkg/util/wait/backoff.go:255
+k8s.io/apimachinery/pkg/util/wait.BackoffUntilWithContext
+	$TASK/.state/go-mod/k8s.io/apimachinery@v0.35.2/pkg/util/wait/backoff.go:256
+k8s.io/apimachinery/pkg/util/wait.BackoffUntil
+	$TASK/.state/go-mod/k8s.io/apimachinery@v0.35.2/pkg/util/wait/backoff.go:233
+k8s.io/client-go/tools/cache.(*Reflector).RunWithContext
+	$TASK/.state/go-mod/k8s.io/client-go@v0.35.2/tools/cache/reflector.go:368
+k8s.io/client-go/tools/cache.(*controller).RunWithContext.(*Group).StartWithContext.func3
+	$TASK/.state/go-mod/k8s.io/apimachinery@v0.35.2/pkg/util/wait/wait.go:63
+k8s.io/apimachinery/pkg/util/wait.(*Group).Start.func1
+	$TASK/.state/go-mod/k8s.io/apimachinery@v0.35.2/pkg/util/wait/wait.go:72
+2026-10-13T06:10:27Z	ERROR	controller-runtime.cache.UnhandledError	Failed to watch	{"reflector": "$TASK/.state/go-mod/k8s.io/client-go@v0.35.2/tools/cache/reflector.go:289", "type": "*v1alpha1.ClawOpsEscalation", "error": "failed to list *v1alpha1.ClawOpsEscalation: clawopsescalations.claw.prismer.ai is forbidden: User \"system:serviceaccount:lifecycle-test:operator\" cannot list resource \"clawopsescalations\" in API group \"claw.prismer.ai\" at the cluster scope"}
+k8s.io/apimachinery/pkg/util/runtime.logError
+	$TASK/.state/go-mod/k8s.io/apimachinery@v0.35.2/pkg/util/runtime/runtime.go:221
+k8s.io/apimachinery/pkg/util/runtime.handleError
+	$TASK/.state/go-mod/k8s.io/apimachinery@v0.35.2/pkg/util/runtime/runtime.go:212
+k8s.io/apimachinery/pkg/util/runtime.HandleErrorWithContext
+	$TASK/.state/go-mod/k8s.io/apimachinery@v0.35.2/pkg/util/runtime/runtime.go:198
+k8s.io/client-go/tools/cache.DefaultWatchErrorHandler
+	$TASK/.state/go-mod/k8s.io/client-go@v0.35.2/tools/cache/reflector.go:204
+k8s.io/client-go/tools/cache.(*Reflector).RunWithContext.func1
+	$TASK/.state/go-mod/k8s.io/client-go@v0.35.2/tools/cache/reflector.go:370
+k8s.io/apimachinery/pkg/util/wait.BackoffUntil.func1
+	$TASK/.state/go-mod/k8s.io/apimachinery@v0.35.2/pkg/util/wait/backoff.go:233
+k8s.io/apimachinery/pkg/util/wait.BackoffUntilWithContext.func1
+	$TASK/.state/go-mod/k8s.io/apimachinery@v0.35.2/pkg/util/wait/backoff.go:255
+k8s.io/apimachinery/pkg/util/wait.BackoffUntilWithContext
+	$TASK/.state/go-mod/k8s.io/apimachinery@v0.35.2/pkg/util/wait/backoff.go:256
+k8s.io/apimachinery/pkg/util/wait.BackoffUntil
+	$TASK/.state/go-mod/k8s.io/apimachinery@v0.35.2/pkg/util/wait/backoff.go:233
+k8s.io/client-go/tools/cache.(*Reflector).RunWithContext
+	$TASK/.state/go-mod/k8s.io/client-go@v0.35.2/tools/cache/reflector.go:368
+k8s.io/client-go/tools/cache.(*controller).RunWithContext.(*Group).StartWithContext.func3
+	$TASK/.state/go-mod/k8s.io/apimachinery@v0.35.2/pkg/util/wait/wait.go:63
+k8s.io/apimachinery/pkg/util/wait.(*Group).Start.func1
+	$TASK/.state/go-mod/k8s.io/apimachinery@v0.35.2/pkg/util/wait/wait.go:72
+Traceback (most recent call last):
+  File "$TASK/k8s4claw/docs/demo/lifecycle-fixed-20261013/scenarios.py", line 201, in <module>
+    try: main()
+  File "$TASK/k8s4claw/docs/demo/lifecycle-fixed-20261013/scenarios.py", line 151, in main
+    snapshot('03-startup')
+  File "$TASK/k8s4claw/docs/demo/lifecycle-fixed-20261013/scenarios.py", line 69, in snapshot
+    sts = obj('sts', 'agent')
+  File "$TASK/k8s4claw/docs/demo/lifecycle-fixed-20261013/scenarios.py", line 39, in obj
+    return json.loads(k('get', kind, name, '-o', 'json', quiet=True))
+  File "$TASK/k8s4claw/docs/demo/lifecycle-fixed-20261013/scenarios.py", line 36, in k
+    return command(K + ['-n', NS] + list(args), **kw)
+  File "$TASK/k8s4claw/docs/demo/lifecycle-fixed-20261013/scenarios.py", line 32, in command
+    raise RuntimeError('command exit %s' % p.returncode)
+RuntimeError: command exit 1
+
+[recorder] child exit code: 1

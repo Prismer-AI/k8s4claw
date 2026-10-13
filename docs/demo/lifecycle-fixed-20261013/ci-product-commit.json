@@ -1,0 +1,109 @@
+{
+  "commit": "7c5e4eacabe17731f46c15a3798c1b7f1b03ffa8",
+  "workflow_run": 38356095240,
+  "url": "https://github.com/Prismer-AI/k8s4claw/actions/runs/38356095240",
+  "jobs": [
+    {
+      "id": 115159228213,
+      "name": "changes",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 115159228570,
+      "name": "dco",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 115159271699,
+      "name": "test",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 115159271735,
+      "name": "build",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 115159271742,
+      "name": "docker-build (operator, Dockerfile, .)",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 115159271761,
+      "name": "verify-codegen",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 115159271781,
+      "name": "docker-build (channel-webhook, Dockerfile.channel-webhook, .)",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 115159271787,
+      "name": "lint",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 115159271789,
+      "name": "docker-build (claw4k8s, Dockerfile.claw4k8s, .)",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 115159271815,
+      "name": "govulncheck",
+      "status": "completed",
+      "conclusion": "failure"
+    },
+    {
+      "id": 115159271817,
+      "name": "docker-build (ipcbus, Dockerfile.ipcbus, .)",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 115159271830,
+      "name": "docker-build (init, Dockerfile.init, .)",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 115159271873,
+      "name": "docker-build (channel-slack, Dockerfile.channel-slack, .)",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 115159271967,
+      "name": "docker-build (openclaw, runtimes/openclaw/Dockerfile, runtimes/openclaw)",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 115159273151,
+      "name": "docker-build-hermesrs",
+      "status": "completed",
+      "conclusion": "skipped"
+    },
+    {
+      "id": 115159982776,
+      "name": "coverage-gate",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "id": 115160086481,
+      "name": "ci-gate",
+      "status": "completed",
+      "conclusion": "failure"
+    }
+  ]
+}

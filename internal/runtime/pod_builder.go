@@ -95,13 +95,15 @@ func pvcVolume(name, claimName string) corev1.Volume {
 // Always included:
 //   - ipc-socket (emptyDir)
 //   - wal-data (emptyDir, 512Mi)
-//   - config-vol (ConfigMap <claw.Name>-config, optional)
+//   - config-source (ConfigMap <claw.Name>-config, optional)
+//   - config-vol (emptyDir populated by init, read-only in runtime)
 //   - tmp (emptyDir)
 //
 // Conditionally included:
 //   - cache (emptyDir with configured medium when persistence.cache is configured and enabled)
 //   - shared-<name> (PVC refs from persistence.shared[])
 //
+// A workspace emptyDir is included when no workspace PVC is configured.
 // Session, output, and workspace PVCs are NOT included here; they belong
 // in StatefulSet volumeClaimTemplates (see BuildVolumeClaimTemplates).
 //
@@ -111,10 +113,14 @@ func buildVolumes(claw *v1alpha1.Claw, spec *RuntimeSpec) []corev1.Volume {
 	vols := []corev1.Volume{
 		emptyDirVolume("ipc-socket", nil, ""),
 		emptyDirVolume("wal-data", &walSize, ""),
-		configMapVolume("config-vol", fmt.Sprintf("%s-config", claw.Name)),
+		configMapVolume("config-source", fmt.Sprintf("%s-config", claw.Name)),
+		emptyDirVolume("config-vol", nil, ""),
 		emptyDirVolume("tmp", nil, ""),
 	}
 
+	if !hasWorkspacePVC(claw) {
+		vols = append(vols, emptyDirVolume("workspace", nil, ""))
+	}
 	if claw.Spec.Persistence != nil {
 		// Cache: ephemeral emptyDir (often tmpfs).
 		if claw.Spec.Persistence.Cache != nil && claw.Spec.Persistence.Cache.Enabled {
@@ -154,6 +160,17 @@ func hasWorkspacePVC(claw *v1alpha1.Claw) bool {
 		claw.Spec.Persistence.Workspace.Enabled
 }
 
+// Init and runtime must see the same writable workspace, with or without a PVC.
+func workspaceMountPath(claw *v1alpha1.Claw, spec *RuntimeSpec) string {
+	if hasWorkspacePVC(claw) && claw.Spec.Persistence.Workspace.MountPath != "" {
+		return claw.Spec.Persistence.Workspace.MountPath
+	}
+	if spec.WorkspacePath != "" {
+		return spec.WorkspacePath
+	}
+	return "/workspace"
+}
+
 // initContainerResources returns the resource requirements for the claw-init container.
 func initContainerResources() corev1.ResourceRequirements {
 	return resources("100m", "128Mi", "500m", "256Mi")
@@ -185,21 +202,13 @@ func buildInitContainer(claw *v1alpha1.Claw, spec *RuntimeSpec) corev1.Container
 		configMode = string(ConfigModeOverwrite)
 	}
 
-	workspacePath := spec.WorkspacePath
-	if workspacePath == "" {
-		workspacePath = "/workspace"
-	}
+	workspacePath := workspaceMountPath(claw, spec)
 
 	mounts := []corev1.VolumeMount{
-		{Name: "config-vol", MountPath: "/etc/claw", ReadOnly: true},
+		{Name: "config-source", MountPath: "/etc/claw-source", ReadOnly: true},
+		{Name: "config-vol", MountPath: "/etc/claw"},
 		{Name: "tmp", MountPath: "/tmp"},
-	}
-
-	if hasWorkspacePVC(claw) {
-		mounts = append(mounts, corev1.VolumeMount{
-			Name:      "workspace",
-			MountPath: workspacePath,
-		})
+		{Name: "workspace", MountPath: workspacePath},
 	}
 
 	initPullPolicy := corev1.PullPolicy(claw.Annotations["claw.prismer.ai/image-pull-policy"])
@@ -242,6 +251,7 @@ func buildRuntimeContainer(claw *v1alpha1.Claw, spec *RuntimeSpec) corev1.Contai
 		{Name: "wal-data", MountPath: "/var/lib/claw/wal"},
 		{Name: "config-vol", MountPath: "/etc/claw", ReadOnly: true},
 		{Name: "tmp", MountPath: "/tmp"},
+		{Name: "workspace", MountPath: workspaceMountPath(claw, spec)},
 	}
 
 	// Conditional mounts based on persistence configuration.
@@ -262,12 +272,6 @@ func buildRuntimeContainer(claw *v1alpha1.Claw, spec *RuntimeSpec) corev1.Contai
 			mounts = append(mounts, corev1.VolumeMount{
 				Name:      "output",
 				MountPath: claw.Spec.Persistence.Output.MountPath,
-			})
-		}
-		if hasWorkspacePVC(claw) {
-			mounts = append(mounts, corev1.VolumeMount{
-				Name:      "workspace",
-				MountPath: claw.Spec.Persistence.Workspace.MountPath,
 			})
 		}
 		for _, s := range claw.Spec.Persistence.Shared {

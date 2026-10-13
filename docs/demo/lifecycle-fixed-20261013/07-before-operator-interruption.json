@@ -1,0 +1,270 @@
+{
+  "label": "07-before-operator-interruption",
+  "utc": "2026-10-13T06:21:36.098861+00:00",
+  "claw_annotations": {
+    "claw.prismer.ai/image-pull-policy": "Never",
+    "claw.prismer.ai/previous-image": "ghcr.io/prismer-ai/k8s4claw-openclaw:0.0.2",
+    "claw.prismer.ai/target-image": "ghcr.io/prismer-ai/k8s4claw-openclaw:0.0.3",
+    "claw.prismer.ai/update-phase": "HealthCheck",
+    "claw.prismer.ai/update-started": "2026-10-13T06:21:25.564176Z"
+  },
+  "claw_status": {
+    "autoUpdate": {
+      "availableVersion": "0.0.3",
+      "currentVersion": "0.0.2",
+      "failedVersions": [
+        "0.0.3"
+      ],
+      "lastCheck": "2026-10-13T06:21:25Z",
+      "lastCompletedUpdate": "2026-10-13T06:19:54.299099Z|ghcr.io/prismer-ai/k8s4claw-openclaw:0.0.3|RolledBack",
+      "rollbackCount": 1,
+      "versionHistory": [
+        {
+          "appliedAt": "2026-10-13T06:19:51Z",
+          "status": "Healthy",
+          "version": "0.0.2"
+        },
+        {
+          "appliedAt": "2026-10-13T06:20:48Z",
+          "status": "RolledBack",
+          "version": "0.0.3"
+        }
+      ]
+    },
+    "conditions": [
+      {
+        "lastTransitionTime": "2026-10-13T06:21:31Z",
+        "message": "Waiting for StatefulSet to become ready",
+        "observedGeneration": 7,
+        "reason": "StatefulSetNotReady",
+        "status": "False",
+        "type": "RuntimeReady"
+      },
+      {
+        "lastTransitionTime": "2026-10-13T06:19:51Z",
+        "message": "Target image is healthy",
+        "observedGeneration": 3,
+        "reason": "UpToDate",
+        "status": "False",
+        "type": "AutoUpdateAvailable"
+      },
+      {
+        "lastTransitionTime": "2026-10-13T06:21:24Z",
+        "message": "Previous-good image is healthy",
+        "observedGeneration": 5,
+        "reason": "RolledBack",
+        "status": "False",
+        "type": "AutoUpdateInProgress"
+      }
+    ],
+    "observedGeneration": 7,
+    "phase": "Provisioning"
+  },
+  "sts_generation": 5,
+  "sts_status": {
+    "availableReplicas": 0,
+    "collisionCount": 0,
+    "currentRevision": "agent-6b48789589",
+    "observedGeneration": 5,
+    "replicas": 1,
+    "updateRevision": "agent-57bcbbf4dd",
+    "updatedReplicas": 1
+  },
+  "sts_image": "ghcr.io/prismer-ai/k8s4claw-openclaw:0.0.3",
+  "pod_uid": "1c5cc41a-115b-48bb-ad02-33e035cddb94",
+  "pod_revision": "agent-57bcbbf4dd",
+  "pod_images": [
+    "ghcr.io/prismer-ai/k8s4claw-openclaw:0.0.3"
+  ],
+  "pod_status": {
+    "conditions": [
+      {
+        "lastProbeTime": null,
+        "lastTransitionTime": "2026-10-13T06:21:32Z",
+        "status": "True",
+        "type": "PodReadyToStartContainers"
+      },
+      {
+        "lastProbeTime": null,
+        "lastTransitionTime": "2026-10-13T06:21:34Z",
+        "status": "True",
+        "type": "Initialized"
+      },
+      {
+        "lastProbeTime": null,
+        "lastTransitionTime": "2026-10-13T06:21:31Z",
+        "message": "containers with unready status: [runtime]",
+        "reason": "ContainersNotReady",
+        "status": "False",
+        "type": "Ready"
+      },
+      {
+        "lastProbeTime": null,
+        "lastTransitionTime": "2026-10-13T06:21:31Z",
+        "message": "containers with unready status: [runtime]",
+        "reason": "ContainersNotReady",
+        "status": "False",
+        "type": "ContainersReady"
+      },
+      {
+        "lastProbeTime": null,
+        "lastTransitionTime": "2026-10-13T06:21:31Z",
+        "status": "True",
+        "type": "PodScheduled"
+      }
+    ],
+    "containerStatuses": [
+      {
+        "containerID": "containerd://16ffc9444fae69dc028ff535535bee6ea91e2715199bc200024118b3f087ee01",
+        "image": "ghcr.io/prismer-ai/k8s4claw-openclaw:0.0.3",
+        "imageID": "sha256:2bf2aaeffc0e9b7e2f32c28f19a034a9a29a3c5fa9f200b50129ea31752f4e2e",
+        "lastState": {
+          "terminated": {
+            "containerID": "containerd://16ffc9444fae69dc028ff535535bee6ea91e2715199bc200024118b3f087ee01",
+            "exitCode": 128,
+            "finishedAt": "2026-10-13T06:21:34Z",
+            "message": "failed to create containerd task: failed to create shim task: OCI runtime create failed: runc create failed: unable to start container process: error during container init: exec: \"/usr/bin/claw-entrypoint\": stat /usr/bin/claw-entrypoint: no such file or directory",
+            "reason": "StartError",
+            "startedAt": "1970-01-01T00:00:00Z"
+          }
+        },
+        "name": "runtime",
+        "ready": false,
+        "restartCount": 0,
+        "started": false,
+        "state": {
+          "waiting": {
+            "message": "failed to create containerd task: failed to create shim task: OCI runtime create failed: runc create failed: unable to start container process: error during container init: exec: \"/usr/bin/claw-entrypoint\": stat /usr/bin/claw-entrypoint: no such file or directory",
+            "reason": "RunContainerError"
+          }
+        },
+        "volumeMounts": [
+          {
+            "mountPath": "/var/run/claw",
+            "name": "ipc-socket"
+          },
+          {
+            "mountPath": "/var/lib/claw/wal",
+            "name": "wal-data"
+          },
+          {
+            "mountPath": "/etc/claw",
+            "name": "config-vol",
+            "readOnly": true,
+            "recursiveReadOnly": "Disabled"
+          },
+          {
+            "mountPath": "/tmp",
+            "name": "tmp"
+          },
+          {
+            "mountPath": "/workspace",
+            "name": "workspace"
+          }
+        ]
+      }
+    ],
+    "hostIP": "172.19.0.2",
+    "hostIPs": [
+      {
+        "ip": "172.19.0.2"
+      }
+    ],
+    "initContainerStatuses": [
+      {
+        "containerID": "containerd://927b3c414a2d955b7ffee5629488342494104156292c83db8e5c4d8ba6417153",
+        "image": "docker.io/library/claw-init-fixed:test",
+        "imageID": "sha256:9189a3f4c12f2c1939a21ba5193ad6ffca2ea794575ef38eec1de70ef35b89d3",
+        "lastState": {},
+        "name": "claw-init",
+        "ready": true,
+        "restartCount": 0,
+        "started": false,
+        "state": {
+          "terminated": {
+            "containerID": "containerd://927b3c414a2d955b7ffee5629488342494104156292c83db8e5c4d8ba6417153",
+            "exitCode": 0,
+            "finishedAt": "2026-10-13T06:21:32Z",
+            "reason": "Completed",
+            "startedAt": "2026-10-13T06:21:32Z"
+          }
+        },
+        "volumeMounts": [
+          {
+            "mountPath": "/etc/claw-source",
+            "name": "config-source",
+            "readOnly": true,
+            "recursiveReadOnly": "Disabled"
+          },
+          {
+            "mountPath": "/etc/claw",
+            "name": "config-vol"
+          },
+          {
+            "mountPath": "/tmp",
+            "name": "tmp"
+          },
+          {
+            "mountPath": "/workspace",
+            "name": "workspace"
+          }
+        ]
+      },
+      {
+        "containerID": "containerd://59191bb8bc391f43d3f3c099a88dd6d8d376e980332e542dd764edad0e11d456",
+        "image": "docker.io/library/claw-ipcbus-fixed:test",
+        "imageID": "sha256:614de82f8fd6e8cc914fc11a9e3af68009d62c5b8b5113557109deaddaf775b9",
+        "lastState": {},
+        "name": "ipc-bus",
+        "ready": true,
+        "restartCount": 0,
+        "started": true,
+        "state": {
+          "running": {
+            "startedAt": "2026-10-13T06:21:32Z"
+          }
+        },
+        "volumeMounts": [
+          {
+            "mountPath": "/var/run/claw",
+            "name": "ipc-socket"
+          },
+          {
+            "mountPath": "/var/run/claw/wal",
+            "name": "wal-data"
+          }
+        ]
+      },
+      {
+        "containerID": "containerd://8c78115fbedecccb5a6a127e9a659bd7fb5a074216fb6513c5e271f0bd5338bf",
+        "image": "docker.io/library/claw-channel-probe:test",
+        "imageID": "sha256:88f0701e61417d8353a2ab6dbf868ce37f161852d0ddd28ca474944237b72563",
+        "lastState": {},
+        "name": "channel-probe",
+        "ready": true,
+        "restartCount": 0,
+        "started": true,
+        "state": {
+          "running": {
+            "startedAt": "2026-10-13T06:21:33Z"
+          }
+        },
+        "volumeMounts": [
+          {
+            "mountPath": "/var/run/claw",
+            "name": "ipc-socket"
+          }
+        ]
+      }
+    ],
+    "phase": "Pending",
+    "podIP": "10.244.0.10",
+    "podIPs": [
+      {
+        "ip": "10.244.0.10"
+      }
+    ],
+    "qosClass": "Burstable",
+    "startTime": "2026-10-13T06:21:31Z"
+  }
+}

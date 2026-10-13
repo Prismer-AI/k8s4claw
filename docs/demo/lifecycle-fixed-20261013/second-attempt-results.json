@@ -1,0 +1,12 @@
+[
+  {
+    "scenario": "real runtime startup",
+    "status": "FAIL",
+    "detail": "Unmodified real-source gateway binary in scratch test image, no init ENV workaround, placeholder credentials and no inference."
+  },
+  {
+    "scenario": "harness completion",
+    "status": "FAIL",
+    "detail": ""
+  }
+]

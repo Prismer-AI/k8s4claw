@@ -1,0 +1,324 @@
+Build real source, fixed product binaries and transparent test packaging
+e52f47be4b3c56559bb0fd438a1f3c6700c71996
+go version go1.25.9 darwin/arm64
+DEPRECATED: The legacy builder is deprecated and will be removed in a future release.
+            Install the buildx component to build images with BuildKit:
+            https://docs.docker.com/go/buildx/
+
+Sending build context to Docker daemon  524.8kB
+Sending build context to Docker daemon  23.88MB
+Sending build context to Docker daemon  41.68MB
+Sending build context to Docker daemon  57.84MB
+Sending build context to Docker daemon  72.86MB
+Sending build context to Docker daemon  78.89MB
+
+
+Step 1/4 : FROM scratch AS operator
+ ---> 
+Step 2/4 : COPY operator /operator
+ ---> 37692adc91c5
+Step 3/4 : USER 65532:65532
+ ---> Running in f6d9b8f88a13
+ ---> Removed intermediate container f6d9b8f88a13
+ ---> 85d9d20bd499
+Step 4/4 : ENTRYPOINT ["/operator"]
+ ---> Running in 24f48384d9af
+ ---> Removed intermediate container 24f48384d9af
+ ---> d12e39ee3336
+Successfully built d12e39ee3336
+Successfully tagged claw-operator-fixed:test
+DEPRECATED: The legacy builder is deprecated and will be removed in a future release.
+            Install the buildx component to build images with BuildKit:
+            https://docs.docker.com/go/buildx/
+
+Sending build context to Docker daemon  524.8kB
+Sending build context to Docker daemon  27.76MB
+Sending build context to Docker daemon  57.84MB
+Sending build context to Docker daemon  78.89MB
+
+
+Step 1/8 : FROM scratch AS operator
+ ---> 
+Step 2/8 : COPY operator /operator
+ ---> Using cache
+ ---> 37692adc91c5
+Step 3/8 : USER 65532:65532
+ ---> Using cache
+ ---> 85d9d20bd499
+Step 4/8 : ENTRYPOINT ["/operator"]
+ ---> Using cache
+ ---> d12e39ee3336
+Step 5/8 : FROM scratch AS init
+ ---> 
+Step 6/8 : COPY claw-init /claw-init
+ ---> 9b05efb8e7c5
+Step 7/8 : USER 65532:65532
+ ---> Running in 82e1dba46593
+ ---> Removed intermediate container 82e1dba46593
+ ---> 772d412272ae
+Step 8/8 : ENTRYPOINT ["/claw-init"]
+ ---> Running in 8bb32885c333
+ ---> Removed intermediate container 8bb32885c333
+ ---> 52241a2b259f
+Successfully built 52241a2b259f
+Successfully tagged claw-init-fixed:test
+DEPRECATED: The legacy builder is deprecated and will be removed in a future release.
+            Install the buildx component to build images with BuildKit:
+            https://docs.docker.com/go/buildx/
+
+Sending build context to Docker daemon  524.8kB
+Sending build context to Docker daemon  27.76MB
+Sending build context to Docker daemon  56.17MB
+Sending build context to Docker daemon  78.43MB
+Sending build context to Docker daemon  78.89MB
+
+
+Step 1/12 : FROM scratch AS operator
+ ---> 
+Step 2/12 : COPY operator /operator
+ ---> Using cache
+ ---> 37692adc91c5
+Step 3/12 : USER 65532:65532
+ ---> Using cache
+ ---> 85d9d20bd499
+Step 4/12 : ENTRYPOINT ["/operator"]
+ ---> Using cache
+ ---> d12e39ee3336
+Step 5/12 : FROM scratch AS init
+ ---> 
+Step 6/12 : COPY claw-init /claw-init
+ ---> Using cache
+ ---> 9b05efb8e7c5
+Step 7/12 : USER 65532:65532
+ ---> Using cache
+ ---> 772d412272ae
+Step 8/12 : ENTRYPOINT ["/claw-init"]
+ ---> Using cache
+ ---> 52241a2b259f
+Step 9/12 : FROM scratch AS ipcbus
+ ---> 
+Step 10/12 : COPY claw-ipcbus /claw-ipcbus
+ ---> c1ba2de465f8
+Step 11/12 : USER 65532:65532
+ ---> Running in 64eaabe256c4
+ ---> Removed intermediate container 64eaabe256c4
+ ---> ed3e470a3f55
+Step 12/12 : ENTRYPOINT ["/claw-ipcbus"]
+ ---> Running in 1e248b9cf625
+ ---> Removed intermediate container 1e248b9cf625
+ ---> 13b43d10712e
+Successfully built 13b43d10712e
+Successfully tagged claw-ipcbus-fixed:test
+DEPRECATED: The legacy builder is deprecated and will be removed in a future release.
+            Install the buildx component to build images with BuildKit:
+            https://docs.docker.com/go/buildx/
+
+Sending build context to Docker daemon  524.8kB
+Sending build context to Docker daemon   21.1MB
+Sending build context to Docker daemon  46.14MB
+Sending build context to Docker daemon  71.18MB
+Sending build context to Docker daemon  78.89MB
+
+
+Step 1/16 : FROM scratch AS operator
+ ---> 
+Step 2/16 : COPY operator /operator
+ ---> Using cache
+ ---> 37692adc91c5
+Step 3/16 : USER 65532:65532
+ ---> Using cache
+ ---> 85d9d20bd499
+Step 4/16 : ENTRYPOINT ["/operator"]
+ ---> Using cache
+ ---> d12e39ee3336
+Step 5/16 : FROM scratch AS init
+ ---> 
+Step 6/16 : COPY claw-init /claw-init
+ ---> Using cache
+ ---> 9b05efb8e7c5
+Step 7/16 : USER 65532:65532
+ ---> Using cache
+ ---> 772d412272ae
+Step 8/16 : ENTRYPOINT ["/claw-init"]
+ ---> Using cache
+ ---> 52241a2b259f
+Step 9/16 : FROM scratch AS ipcbus
+ ---> 
+Step 10/16 : COPY claw-ipcbus /claw-ipcbus
+ ---> Using cache
+ ---> c1ba2de465f8
+Step 11/16 : USER 65532:65532
+ ---> Using cache
+ ---> ed3e470a3f55
+Step 12/16 : ENTRYPOINT ["/claw-ipcbus"]
+ ---> Using cache
+ ---> 13b43d10712e
+Step 13/16 : FROM scratch AS channel
+ ---> 
+Step 14/16 : COPY probe /probe
+ ---> Using cache
+ ---> 1f371ee6c755
+Step 15/16 : USER 65532:65532
+ ---> Using cache
+ ---> b852b43d9099
+Step 16/16 : ENTRYPOINT ["/probe", "hold"]
+ ---> Using cache
+ ---> 27dbb4bafcb2
+Successfully built 27dbb4bafcb2
+Successfully tagged claw-channel-probe:test
+DEPRECATED: The legacy builder is deprecated and will be removed in a future release.
+            Install the buildx component to build images with BuildKit:
+            https://docs.docker.com/go/buildx/
+
+Sending build context to Docker daemon  524.8kB
+Sending build context to Docker daemon  32.21MB
+Sending build context to Docker daemon  52.83MB
+Sending build context to Docker daemon  78.89MB
+
+
+Step 1/21 : FROM scratch AS operator
+ ---> 
+Step 2/21 : COPY operator /operator
+ ---> Using cache
+ ---> 37692adc91c5
+Step 3/21 : USER 65532:65532
+ ---> Using cache
+ ---> 85d9d20bd499
+Step 4/21 : ENTRYPOINT ["/operator"]
+ ---> Using cache
+ ---> d12e39ee3336
+Step 5/21 : FROM scratch AS init
+ ---> 
+Step 6/21 : COPY claw-init /claw-init
+ ---> Using cache
+ ---> 9b05efb8e7c5
+Step 7/21 : USER 65532:65532
+ ---> Using cache
+ ---> 772d412272ae
+Step 8/21 : ENTRYPOINT ["/claw-init"]
+ ---> Using cache
+ ---> 52241a2b259f
+Step 9/21 : FROM scratch AS ipcbus
+ ---> 
+Step 10/21 : COPY claw-ipcbus /claw-ipcbus
+ ---> Using cache
+ ---> c1ba2de465f8
+Step 11/21 : USER 65532:65532
+ ---> Using cache
+ ---> ed3e470a3f55
+Step 12/21 : ENTRYPOINT ["/claw-ipcbus"]
+ ---> Using cache
+ ---> 13b43d10712e
+Step 13/21 : FROM scratch AS channel
+ ---> 
+Step 14/21 : COPY probe /probe
+ ---> Using cache
+ ---> 1f371ee6c755
+Step 15/21 : USER 65532:65532
+ ---> Using cache
+ ---> b852b43d9099
+Step 16/21 : ENTRYPOINT ["/probe", "hold"]
+ ---> Using cache
+ ---> 27dbb4bafcb2
+Step 17/21 : FROM scratch AS runtime
+ ---> 
+Step 18/21 : COPY claw-entrypoint /usr/bin/claw-entrypoint
+ ---> 237c4a8198dd
+Step 19/21 : COPY probe /probe
+ ---> d3ac61c92b64
+Step 20/21 : USER 65532:65532
+ ---> Running in 4e9175cfa1ab
+ ---> Removed intermediate container 4e9175cfa1ab
+ ---> 279d7a0e7233
+Step 21/21 : ENTRYPOINT ["/usr/bin/claw-entrypoint"]
+ ---> Running in ecfcc7633ec7
+ ---> Removed intermediate container ecfcc7633ec7
+ ---> c3b0978028e4
+Successfully built c3b0978028e4
+Successfully tagged ghcr.io/prismer-ai/k8s4claw-openclaw:0.0.1
+DEPRECATED: The legacy builder is deprecated and will be removed in a future release.
+            Install the buildx component to build images with BuildKit:
+            https://docs.docker.com/go/buildx/
+
+Sending build context to Docker daemon  524.8kB
+Sending build context to Docker daemon  33.89MB
+Sending build context to Docker daemon  67.31MB
+Sending build context to Docker daemon  78.89MB
+
+
+Step 1/24 : FROM scratch AS operator
+ ---> 
+Step 2/24 : COPY operator /operator
+ ---> Using cache
+ ---> 37692adc91c5
+Step 3/24 : USER 65532:65532
+ ---> Using cache
+ ---> 85d9d20bd499
+Step 4/24 : ENTRYPOINT ["/operator"]
+ ---> Using cache
+ ---> d12e39ee3336
+Step 5/24 : FROM scratch AS init
+ ---> 
+Step 6/24 : COPY claw-init /claw-init
+ ---> Using cache
+ ---> 9b05efb8e7c5
+Step 7/24 : USER 65532:65532
+ ---> Using cache
+ ---> 772d412272ae
+Step 8/24 : ENTRYPOINT ["/claw-init"]
+ ---> Using cache
+ ---> 52241a2b259f
+Step 9/24 : FROM scratch AS ipcbus
+ ---> 
+Step 10/24 : COPY claw-ipcbus /claw-ipcbus
+ ---> Using cache
+ ---> c1ba2de465f8
+Step 11/24 : USER 65532:65532
+ ---> Using cache
+ ---> ed3e470a3f55
+Step 12/24 : ENTRYPOINT ["/claw-ipcbus"]
+ ---> Using cache
+ ---> 13b43d10712e
+Step 13/24 : FROM scratch AS channel
+ ---> 
+Step 14/24 : COPY probe /probe
+ ---> Using cache
+ ---> 1f371ee6c755
+Step 15/24 : USER 65532:65532
+ ---> Using cache
+ ---> b852b43d9099
+Step 16/24 : ENTRYPOINT ["/probe", "hold"]
+ ---> Using cache
+ ---> 27dbb4bafcb2
+Step 17/24 : FROM scratch AS runtime
+ ---> 
+Step 18/24 : COPY claw-entrypoint /usr/bin/claw-entrypoint
+ ---> Using cache
+ ---> 237c4a8198dd
+Step 19/24 : COPY probe /probe
+ ---> Using cache
+ ---> d3ac61c92b64
+Step 20/24 : USER 65532:65532
+ ---> Using cache
+ ---> 279d7a0e7233
+Step 21/24 : ENTRYPOINT ["/usr/bin/claw-entrypoint"]
+ ---> Using cache
+ ---> c3b0978028e4
+Step 22/24 : FROM scratch AS bad-runtime
+ ---> 
+Step 23/24 : COPY claw-entrypoint /deliberately-wrong-path
+ ---> 7e337e7dccd0
+Step 24/24 : USER 65532:65532
+ ---> Running in 2563062b30fb
+ ---> Removed intermediate container 2563062b30fb
+ ---> 15670d927093
+Successfully built 15670d927093
+Successfully tagged ghcr.io/prismer-ai/k8s4claw-openclaw:0.0.3
+91c5712b9e86a6cc758260f1a646699e79b674c824896d519cfe0aa505695bec  $TASK/.state/images-fixed/claw-entrypoint
+7aab2495fea2586e5792b58e750eaab8e84ef78ed369e8e2084dd418ef913e59  $TASK/.state/images-fixed/claw-init
+086411d241b06c2954494f1078b63ac26ea95aa4858c22133f624e1859e5ca6c  $TASK/.state/images-fixed/claw-ipcbus
+b202ed4e351b1c8aba64a5a6ed97d0bf0602c11394ceb4a496d1e4a5222a7a48  $TASK/.state/images-fixed/operator
+6cfc014937886ae5e58a30a5369e6bc5c9ed157e969f21620bdf5b4b823d7f65  $TASK/.state/images-fixed/probe
+eab77ff30c99bd7e5e7ee91f94512a6c77094d39df0da2fef1752e190b715591  $TASK/.state/images-fixed/probe.go
+
+[recorder] child exit code: 0

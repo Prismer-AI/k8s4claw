@@ -175,12 +175,14 @@ func TestBuildVolumes_Minimal(t *testing.T) {
 	spec := minimalSpec()
 	vols := buildVolumes(claw, spec)
 
-	// Expect 4 base volumes: ipc-socket, wal-data, config-vol, tmp
+	// Separate source/output config volumes and an ephemeral workspace.
 	wantNames := map[string]bool{
-		"ipc-socket": true,
-		"wal-data":   true,
-		"config-vol": true,
-		"tmp":        true,
+		"ipc-socket":    true,
+		"wal-data":      true,
+		"config-vol":    true,
+		"config-source": true,
+		"workspace":     true,
+		"tmp":           true,
 	}
 
 	if len(vols) != len(wantNames) {
@@ -210,9 +212,9 @@ func TestBuildVolumes_Minimal(t *testing.T) {
 		}
 	}
 
-	// Verify config-vol references the correct ConfigMap name.
+	// Verify config-source references the correct ConfigMap name.
 	for _, v := range vols {
-		if v.Name == "config-vol" {
+		if v.Name == "config-source" {
 			if v.VolumeSource.ConfigMap == nil {
 				t.Fatal("config-vol must be a ConfigMap volume")
 			}
@@ -266,12 +268,13 @@ func TestBuildVolumes_WithPersistence(t *testing.T) {
 	spec := minimalSpec()
 	vols := buildVolumes(claw, spec)
 
-	// Base (4) + cache (1) + shared (2) = 7
+	// Base (5) + cache (1) + shared (2) = 8
 	// Session, Output, Workspace must NOT be included.
 	wantNames := map[string]bool{
 		"ipc-socket":      true,
 		"wal-data":        true,
 		"config-vol":      true,
+		"config-source":   true,
 		"tmp":             true,
 		"cache":           true,
 		"shared-models":   true,
@@ -346,8 +349,8 @@ func TestBuildVolumes_ExtraVolumes(t *testing.T) {
 	vols := buildVolumes(claw, spec)
 
 	// Base (4) + extra (1) = 5
-	if len(vols) != 5 {
-		t.Fatalf("got %d volumes; want 5", len(vols))
+	if len(vols) != 7 {
+		t.Fatalf("got %d volumes; want 7", len(vols))
 	}
 
 	found := false
@@ -418,13 +421,13 @@ func TestBuildInitContainer(t *testing.T) {
 		t.Errorf("CLAW_NAME = %q; want %q", envMap["CLAW_NAME"], "test-claw")
 	}
 
-	// Verify volume mounts include config-vol (RO) and tmp.
+	// Source is read-only; init writes the config volume shared with runtime.
 	mountMap := mountsToMap(ic.VolumeMounts)
 	if _, ok := mountMap["config-vol"]; !ok {
 		t.Error("missing volume mount config-vol")
 	}
-	if !mountMap["config-vol"].ReadOnly {
-		t.Error("config-vol must be ReadOnly")
+	if mountMap["config-vol"].ReadOnly || !mountMap["config-source"].ReadOnly {
+		t.Error("init must read config-source and write config-vol")
 	}
 	if _, ok := mountMap["tmp"]; !ok {
 		t.Error("missing volume mount tmp")
@@ -499,8 +502,8 @@ func TestBuildInitContainer_NoWorkspace(t *testing.T) {
 	ic := buildInitContainer(claw, spec)
 
 	mountMap := mountsToMap(ic.VolumeMounts)
-	if _, ok := mountMap["workspace"]; ok {
-		t.Error("workspace mount should NOT be present when no workspace PVC is configured")
+	if m, ok := mountMap["workspace"]; !ok || m.MountPath != "/workspace" {
+		t.Error("ephemeral workspace must be mounted without a PVC")
 	}
 }
 

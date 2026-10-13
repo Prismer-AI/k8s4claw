@@ -1,0 +1,35 @@
+REAL FIXED SOURCE KIND TEST; no init environment workaround; no paid inference.
+$ git rev-parse HEAD
+e52f47be4b3c56559bb0fd438a1f3c6700c71996
+$ $TASK/.tools/bin/kind load docker-image --name k8s4claw-fixed-20261013 claw-operator-fixed:test claw-init-fixed:test claw-ipcbus-fixed:test claw-channel-probe:test ghcr.io/prismer-ai/k8s4claw-openclaw:0.0.1 ghcr.io/prismer-ai/k8s4claw-openclaw:0.0.2 ghcr.io/prismer-ai/k8s4claw-openclaw:0.0.3 ghcr.io/prismer-ai/k8s4claw-openclaw:latest
+Image: "claw-operator-fixed:test" with ID "sha256:d12e39ee3336c7471cece13fbfc2fca14b31edc007901ca49ead9c166213787f" not yet present on node "k8s4claw-fixed-20261013-control-plane", loading...
+Image: "claw-init-fixed:test" with ID "sha256:52241a2b259f8f8dfe3e06773547571d01e5d6550920e8da366c4b1b005f844f" not yet present on node "k8s4claw-fixed-20261013-control-plane", loading...
+Image: "claw-ipcbus-fixed:test" with ID "sha256:13b43d10712e9f8b14223e01f2c8e4f80047fc918819522f3657bfd43a681139" not yet present on node "k8s4claw-fixed-20261013-control-plane", loading...
+Image: "claw-channel-probe:test" with ID "sha256:27dbb4bafcb200d7390d8f802eeb623ccc681b1af793a8fd47c31a215da32888" not yet present on node "k8s4claw-fixed-20261013-control-plane", loading...
+Image: "ghcr.io/prismer-ai/k8s4claw-openclaw:0.0.1" with ID "sha256:c3b0978028e4d7a834191b3dcad301451d53b11e59551bbc1f590c65ea7740fa" not yet present on node "k8s4claw-fixed-20261013-control-plane", loading...
+Image: "ghcr.io/prismer-ai/k8s4claw-openclaw:0.0.2" with ID "sha256:c3b0978028e4d7a834191b3dcad301451d53b11e59551bbc1f590c65ea7740fa" not yet present on node "k8s4claw-fixed-20261013-control-plane", loading...
+Image: "ghcr.io/prismer-ai/k8s4claw-openclaw:0.0.3" with ID "sha256:15670d927093b9ad55385dfbdd7bd8bd55c95585d4d1b930eff3cc2b637839b0" not yet present on node "k8s4claw-fixed-20261013-control-plane", loading...
+Image: "ghcr.io/prismer-ai/k8s4claw-openclaw:latest" with ID "sha256:c3b0978028e4d7a834191b3dcad301451d53b11e59551bbc1f590c65ea7740fa" not yet present on node "k8s4claw-fixed-20261013-control-plane", loading...
+$ $TASK/.tools/bin/kubectl --context kind-k8s4claw-fixed-20261013 -n lifecycle-test delete namespace lifecycle-test --ignore-not-found --timeout=60s
+Warning: deleting cluster-scoped resources, not scoped to the provided namespace
+namespace "lifecycle-test" deleted
+error: timed out waiting for the condition on namespaces/lifecycle-test
+
+RESULT {"scenario": "harness completion", "status": "FAIL", "detail": "command exit 1"}
+
+$ $TASK/.tools/bin/kubectl --context kind-k8s4claw-fixed-20261013 -n lifecycle-test get pods -o wide
+No resources found in lifecycle-test namespace.
+$ $TASK/.tools/bin/kubectl --context kind-k8s4claw-fixed-20261013 -n lifecycle-test logs deployment/operator --tail=50
+error: error from server (NotFound): deployments.apps "operator" not found in namespace "lifecycle-test"
+Traceback (most recent call last):
+  File "$TASK/k8s4claw/docs/demo/lifecycle-fixed-20261013/scenarios.py", line 207, in <module>
+    try: main()
+  File "$TASK/k8s4claw/docs/demo/lifecycle-fixed-20261013/scenarios.py", line 125, in main
+    k('delete','namespace',NS,'--ignore-not-found','--timeout=60s')
+  File "$TASK/k8s4claw/docs/demo/lifecycle-fixed-20261013/scenarios.py", line 36, in k
+    return command(K + ['-n', NS] + list(args), **kw)
+  File "$TASK/k8s4claw/docs/demo/lifecycle-fixed-20261013/scenarios.py", line 32, in command
+    raise RuntimeError('command exit %s' % p.returncode)
+RuntimeError: command exit 1
+
+[recorder] child exit code: 1

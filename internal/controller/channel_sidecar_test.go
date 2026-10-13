@@ -12,6 +12,16 @@ import (
 	clawv1alpha1 "github.com/Prismer-AI/k8s4claw/api/v1alpha1"
 )
 
+func TestIPCBusUsesSocketFile(t *testing.T) {
+	t.Parallel()
+	claw := &clawv1alpha1.Claw{}
+	template := &corev1.PodTemplateSpec{}
+	injectIPCBusSidecar(claw, template, "openclaw", 18900)
+	if got := envToMap(template.Spec.InitContainers[0].Env)["IPC_SOCKET_PATH"]; got != "/var/run/claw/bus.sock" {
+		t.Fatalf("IPC socket must be a file, got %q", got)
+	}
+}
+
 func TestBuildChannelContainer_BuiltinNative(t *testing.T) {
 	t.Parallel()
 

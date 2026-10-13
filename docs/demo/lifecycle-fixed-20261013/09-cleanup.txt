@@ -1,0 +1,6 @@
+Delete only the final isolated test cluster; no other context is accessed.
+Deleting cluster "k8s4claw-fixed-final-20261013" ...
+Deleted nodes: ["k8s4claw-fixed-final-20261013-control-plane"]
+PASS both dedicated test node containers are absent
+
+[recorder] child exit code: 0

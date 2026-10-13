@@ -717,6 +717,11 @@ spec:
                     description: LastCheck is when the registry was last queried.
                     format: date-time
                     type: string
+                  lastCompletedUpdate:
+                    description: |-
+                      LastCompletedUpdate identifies the last durably accounted outcome.
+                      It prevents duplicate history/count changes across retries and restarts.
+                    type: string
                   lastUpdate:
                     description: LastUpdate is when the last update was applied.
                     format: date-time

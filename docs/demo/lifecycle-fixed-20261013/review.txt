@@ -1,0 +1,8 @@
+Review completed 2026-10-13 UTC before publication.
+All four MP4s decoded fully without errors (359 frames total).
+Four time-spaced visual samples per clip were reviewed, plus full transcripts/results and lifecycle snapshots.
+Only test terminal content; no desktop, inbox, kubeconfig contents or live credentials.
+Task path prefixes replaced with $TASK before rendering. Placeholder credential intentionally invalid.
+Actual cast exit codes and original event timing preserved; MP4 playback is labeled 4x.
+All six final scenario results PASS; prior failures remain in separate files/videos.
+Test-only kind clusters deleted; cleanup transcript verifies node container absence.
