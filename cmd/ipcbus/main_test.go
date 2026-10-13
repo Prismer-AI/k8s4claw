@@ -3,9 +3,10 @@ package main
 import (
 	"context"
 	"errors"
-	"github.com/go-logr/logr"
 	"testing"
 	"time"
+
+	"github.com/go-logr/logr"
 )
 
 func TestWaitForRuntimeRetriesBeforeUse(t *testing.T) {
